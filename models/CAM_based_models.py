@@ -26,6 +26,8 @@ class MTEXCNN(nn.Module):
         x = self.fc1(x)
         x = self.fc2(x)
 
+        return x
+
 class XCM(nn.Module):
     def __init__(self, window_size, time_length, feature_length, n_classes):
         super(XCM, self).__init__()
@@ -67,3 +69,5 @@ class XCM(nn.Module):
         main_branch = self.flatten(main_branch)
         main_branch = self.fc1(main_branch)
         main_branch = self.softmax(main_branch)
+
+        return main_branch

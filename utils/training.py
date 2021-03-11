@@ -1,12 +1,14 @@
 import time
 import copy
 import torch
+import numpy as np
 import matplotlib.pyplot as plt
 
 
-def train_model(model, criterion, optimizer, scheduler, dataloaders, num_epochs=25):
+def train_model(model, criterion, optimizer, scheduler, dataloaders, datasets_size, num_epochs=25):
     since = time.time()
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    model = model.to(device)
     train_loss = []
     test_loss = []
     best_model_wts = copy.deepcopy(model.state_dict())
@@ -52,8 +54,8 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, num_epochs=
             if phase == 'train':
                 scheduler.step()
 
-            epoch_loss = running_loss / dataloaders[phase].__len__()
-            epoch_acc = running_corrects.double() / dataset_sizes[phase].__len__()
+            epoch_loss = running_loss / datasets_size[phase]
+            epoch_acc = running_corrects.double() / datasets_size[phase]
 
             print('{} Loss: {:.4f} Acc: {:.4f} Correct: {}'.format(
                 phase, epoch_loss, epoch_acc, running_corrects.double()))

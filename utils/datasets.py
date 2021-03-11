@@ -3,7 +3,9 @@ import pandas as pd
 import numpy as np
 import os
 import torch
+import copy
 from torch.utils.data import DataLoader, Dataset
+from sklearn.preprocessing import MinMaxScaler
 
 class MTSDataset(Dataset):
     def __init__(self, inp, out, time_length, feature_length):
@@ -18,6 +20,7 @@ class MTSDataset(Dataset):
     def __getitem__(self, index):
         image = (self.input[index]).reshape(1,self.dims,self.channels)
         label = self.output[index]
+        return image, label
 
 class DatasetLoader:
     def __init__(self, folder_path):
@@ -37,9 +40,9 @@ class DatasetLoader:
     def load_to_nparray(self):
         train_data, test_data = self.load_to_df()
         train_X = np.array([pd.DataFrame(train_data.loc[i][0]).values for i in range(len(train_data))],dtype=np.float)
-        train_y = np.array([int(float(train_data.loc[i][1])) for i in range(len(train_data))],dtype=np.float)
+        train_y = np.array([int(float(train_data.loc[i][1])) -1 for i in range(len(train_data))],dtype=np.long)
         test_X = np.array([pd.DataFrame(test_data.loc[i][0]).values for i in range(len(test_data))],dtype=np.float)
-        test_y = np.array([int(float(test_data.loc[i][1])) for i in range(len(test_data))],dtype=np.float)
+        test_y = np.array([int(float(test_data.loc[i][1])) - 1 for i in range(len(test_data))],dtype=np.long)
         return train_X, train_y, test_X, test_y
 
     def get_torch_dataset_loader_auto(self, train_batch_size, test_batch_size):
@@ -53,7 +56,11 @@ class DatasetLoader:
         dataloaders['train'] = train_loader
         dataloaders['val'] = test_loader
 
-        return dataloaders
+        dataset_sizes = {}
+        dataset_sizes['train'] = len(train_dataset)
+        dataset_sizes['val'] = len(test_dataset)
+
+        return dataloaders, dataset_sizes
 
     def get_torch_dataset_loader_custom(self, time_length, feature_length, train_batch_size, test_batch_size):
         X_train, y_train, X_test, y_test = self.load_to_nparray()
