@@ -9,7 +9,7 @@ class MTEXCNN(nn.Module):
         self.conv_2 = nn.Conv2d(16, 32, (time_length//4 + 1, 1))
         self.conv_3 = nn.Conv2d(32, 1, 1)
         self.conv_4 = nn.Conv1d(3, 64, 3)
-        self.linear_1 = nn.Linear(64 * (time_length//4 + 1 - 1), 32)
+        self.linear_1 = nn.Linear(64 * (time_length//4), 32)
         self.linear_2 = nn.Linear(32, n_classes)
         
     def forward(self, x):
