@@ -1,30 +1,34 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from collections import OrderedDict
+from utils.training_helpers import Reshape
 
 class MTEXCNN(nn.Module):
-    def __init__(self, time_length, n_classes):
+    def __init__(self, time_length, feature_length, n_classes):
         super(MTEXCNN, self).__init__()
-        self.conv_1 = nn.Conv2d(1, 16, (time_length//2 + 1, 1))
-        self.conv_2 = nn.Conv2d(16, 32, (time_length//4 + 1, 1))
-        self.conv_3 = nn.Conv2d(32, 1, 1)
-        self.conv_4 = nn.Conv1d(3, 64, 3)
-        self.fc1 = nn.Linear(64 * (time_length//4), 32)
-        self.fc2 = nn.Linear(32, n_classes)
+        self.cnn_layers = nn.Sequential(OrderedDict([
+            ('conv_1', nn.Conv2d(1, 16, (time_length//2 + 1, 1))),
+            ('relu_1', nn.ReLU(inplace=True)),
+            ('conv_2', nn.Conv2d(16, 32, (time_length//4 + 1, 1))),
+            ('relu_2', nn.ReLU(inplace=True)),
+            ('conv_3', nn.Conv2d(32, 1, 1)),
+            ('relu_3', nn.ReLU(inplace=True)),
+            ('reshape', Reshape(-1,feature_length,time_length//4 + 2)),
+            ('conv_4', nn.Conv1d(feature_length, 64, 3)),
+            ('relu_4', nn.ReLU(inplace=True))
+        ]))
+
+        self.linear_layers = nn.Sequential(OrderedDict([
+            ('fc1', nn.Linear(64 * (time_length//4), 32)),
+            ('fc2', nn.Linear(32, n_classes))
+        ]))
+        
         
     def forward(self, x):
-        x = self.conv_1(x)
-        x = F.relu(x)
-        x = self.conv_2(x)
-        x = F.relu(x)
-        x = self.conv_3(x)
-        x = F.relu(x)
-        x = x.view(-1,x.size(3),x.size(2))
-        x = self.conv_4(x)
-        x = F.relu(x)
+        x = self.cnn_layers(x)
         x = x.view(x.size(0),-1)
-        x = self.fc1(x)
-        x = self.fc2(x)
+        x = self.linear_layers(x)
 
         return x
 
