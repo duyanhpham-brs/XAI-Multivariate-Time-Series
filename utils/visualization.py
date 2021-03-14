@@ -7,8 +7,8 @@ class CAMFeatureMaps():
     def __init__(self, CAM_model):
         self.CAM_model = CAM_model
     
-    def load(self, model, target_layer_names):
-        self.cam = self.CAM_model(model=model, feature_module=model.cnn_layers, \
+    def load(self, model, module, target_layer_names):
+        self.cam = self.CAM_model(model=model, feature_module=module, \
                     target_layer_names=[target_layer_names], use_cuda=False)
 
     def show(self, data, index, upsampling = True):

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
-from utils.training_helpers import View
+from utils.training_helpers import View, Squeeze, SwapLastDims
 
 class MTEXCNN(nn.Module):
     def __init__(self, time_length, feature_length, n_classes):
@@ -35,43 +35,43 @@ class MTEXCNN(nn.Module):
 class XCM(nn.Module):
     def __init__(self, window_size, time_length, feature_length, n_classes):
         super(XCM, self).__init__()
-        self.conv_11 = nn.Conv2d(1, 16, window_size, padding=window_size//2)
-        self.batchnorm_11 = nn.BatchNorm2d(16)
-        self.conv_12 = nn.Conv2d(16, 1, 1)
-        self.conv_21 = nn.Conv1d(3, 16, window_size, padding=window_size//2)
-        self.batchnorm_21 = nn.BatchNorm1d(16)
-        self.conv_22 = nn.Conv1d(16, 1, 1)
-        self.conv_3 = nn.Conv1d(time_length, 32, window_size, padding=window_size//2)
-        self.batchnorm_3 = nn.BatchNorm1d(32)
-        self.glb_avg_pool = nn.AvgPool1d(feature_length + 1)
-        self.flatten = nn.Flatten()
-        self.fc1 = nn.Linear(32, n_classes)
-        self.softmax = nn.Softmax(dim=1)
+        self.cnn_layers_1 = nn.Sequential(OrderedDict([
+            ('conv_11', nn.Conv2d(1, 16, window_size, padding=window_size//2)),
+            ('batchnorm_11', nn.BatchNorm2d(16)),
+            ('relu_11', nn.ReLU(inplace=True)),
+            ('conv_12', nn.Conv2d(16, 1, 1)),
+            ('relu_12', nn.ReLU(inplace=True)),
+            ('squeeze_12', Squeeze()),
+            ('swap_12', SwapLastDims())
+        ]))
+
+        self.cnn_layers_2 = nn.Sequential(OrderedDict([
+            ('view_21', View((feature_length,time_length))),
+            ('conv_21', nn.Conv1d(3, 16, window_size, padding=window_size//2)),
+            ('batchnorm_21', nn.BatchNorm1d(16)),
+            ('relu_21', nn.ReLU(inplace=True)),
+            ('conv_22', nn.Conv1d(16, 1, 1)),
+            ('relu_22', nn.ReLU(inplace=True))
+        ]))
+
+        self.cnn_layers_3 = nn.Sequential(OrderedDict([
+            ('swap_31', SwapLastDims()),
+            ('conv_31', nn.Conv1d(time_length, 32, window_size, padding=window_size//2)),
+            ('batchnorm_31', nn.BatchNorm1d(32)),
+            ('relu_3', nn.ReLU(inplace=True)),
+            ('avgpool', nn.AvgPool1d(feature_length + 1)),
+            ('flatten', nn.Flatten()),
+            ('fc1', nn.Linear(32, n_classes)),
+            ('softmax', nn.Softmax(dim=1))
+        ]))
         
     def forward(self, x):
         # 2d (spatial) branch
-        first_branch1 = self.conv_11(x)
-        first_branch1 = self.batchnorm_11(first_branch1)
-        first_branch1 = F.relu(first_branch1)
-        first_branch2 = self.conv_12(first_branch1)
-        first_branch2 = F.relu(first_branch2)
+        first_branch = self.cnn_layers_1(x)
         # 1d (temporal) branch
-        second_branch1 = x.view(-1,x.size(3),x.size(2))
-        second_branch1 = self.conv_21(second_branch1)
-        second_branch1 = self.batchnorm_21(second_branch1)
-        second_branch1 = F.relu(second_branch1)
-        second_branch2 = self.conv_22(second_branch1)
-        second_branch2 = F.relu(second_branch2)
+        second_branch = self.cnn_layers_2(x)
         # Concatenation
-        first_branch2 = first_branch2.view(-1, first_branch2.size(3), first_branch2.size(2))
-        main_branch = torch.cat((first_branch2, second_branch2), 1)
-        main_branch = main_branch.view(-1, main_branch.size(2), main_branch.size(1))
-        main_branch = self.conv_3(main_branch)
-        main_branch = self.batchnorm_3(main_branch)
-        main_branch = F.relu(main_branch)
-        main_branch = self.glb_avg_pool(main_branch)
-        main_branch = self.flatten(main_branch)
-        main_branch = self.fc1(main_branch)
-        main_branch = self.softmax(main_branch)
+        main_branch = torch.cat((first_branch, second_branch), 1)
+        main_branch = self.cnn_layers_3(main_branch)
 
         return main_branch
