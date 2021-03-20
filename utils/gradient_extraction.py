@@ -44,12 +44,33 @@ class ModelOutputs():
 
     def __call__(self, x):
         target_activations = []
+        branches = {}
         for name, module in self.model._modules.items():
-            if module == self.feature_module:
+            if module == self.feature_module and not "_b" in name.lower():
                 target_activations, x = self.feature_extractor(x)
+            elif "_b" in name.lower():
+                if module == self.feature_module:
+                    target_activations, temp = self.feature_extractor(x)
+                    net_type, num_layer, num_branch = name.split('_')
+                    if not num_branch in list(branches.keys()):
+                        branches[num_branch] = []
+                        branches[num_branch].append(temp)
+                    else:
+                        branches[num_branch].append(temp)
+                else:
+                    net_type, num_layer, num_branch = name.split('_')
+                    if not num_branch in list(branches.keys()):
+                        branches[num_branch] = []
+                        branches[num_branch].append(module(x))
+                    else:
+                        branches[num_branch].append(module(x))
+                    
             elif "avgpool" in name.lower():
                 x = module(x)
                 x = x.view(x.size(0),-1)
+            elif not "linear" in name.lower():
+                x = torch.cat(tuple(branches[num_branch]), 1)
+                x = module(x)
             else:
                 if len(x.size()) == 3:
                     x = x.view(x.size(0), -1)

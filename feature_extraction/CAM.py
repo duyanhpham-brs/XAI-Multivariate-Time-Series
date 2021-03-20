@@ -27,8 +27,8 @@ class GradCAM:
             features, output = self.extractor(input)
 
         if index == None:
-            print(f'The index has the largest maximum likelihood is {index}')
             index = np.argmax(output.cpu().data.numpy())
+            print(f'The index has the largest maximum likelihood is {index}')
 
         one_hot = np.zeros((1, output.size()[-1]), dtype=np.float32)
         one_hot[0][index] = 1
