@@ -2,13 +2,14 @@ import torch
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.colors as colors
 
 class CAMFeatureMaps():
     def __init__(self, CAM_model):
         self.CAM_model = CAM_model
     
-    def load(self, model, target_layer_names):
-        self.cam = self.CAM_model(model=model, feature_module=model.cnn_layers, \
+    def load(self, model, module, target_layer_names):
+        self.cam = self.CAM_model(model=model, feature_module=module, \
                     target_layer_names=[target_layer_names], use_cuda=False)
 
     def show(self, data, index, upsampling = True):
@@ -40,14 +41,8 @@ class CAMFeatureMaps():
 
         return mask
 
-def map_activation_to_input(data, mask, magnifying_coeff):
-    plt.plot(data.T)
+def map_activation_to_input(data, mask):
+    plt.plot(data.T,c='black',alpha=0.2)
     for j in range(3):
-        for i in range(len(data.T)):
-            if j == 0:
-                plt.scatter(i,data.T[i,j],c='red',s=magnifying_coeff*mask[i,j])
-            elif j == 1:
-                plt.scatter(i,data.T[i,j],c='lightgreen',s=magnifying_coeff*mask[i,j])
-            else:
-                plt.scatter(i,data.T[i,j],c='black',s=magnifying_coeff*mask[i,j])
+        plt.scatter(np.arange(0,315,1),data.T[:,j],c=mask[:,j],cmap='brg',s=7)
     plt.show()
