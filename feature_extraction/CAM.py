@@ -3,11 +3,11 @@ import torch
 from torch.autograd import Function
 from torchvision import models
 from torch import nn
+from collections import OrderedDict
 from utils.gradient_extraction import ModelOutputs
 
-# Adapt from https://github.com/jacobgil/pytorch-grad-cam/blob/bf27469f5b3accf9535e04e52106e3f77f5e9cf5/gradcam.py#L74
 class GradCAM:
-    def __init__(self, model, feature_module, target_layer_names, use_cuda):
+    def __init__(self, model, feature_module, target_layer_names, use_cuda, **kwargs):
         self.model = model
         self.feature_module = feature_module
         self.model.eval()
@@ -64,7 +64,7 @@ class GradCAM:
 
 # Adapt from https://github.com/adityac94/Grad_CAM_plus_plus/blob/4a9faf6ac61ef0c56e19b88d8560b81cd62c5017/misc/utils.py#L51
 class GradCAMPlusPlus:
-    def __init__(self, model, feature_module, target_layer_names, use_cuda):
+    def __init__(self, model, feature_module, target_layer_names, use_cuda, **kwargs):
         self.model = model
         self.feature_module = feature_module
         self.model.eval()
@@ -129,6 +129,48 @@ class GradCAMPlusPlus:
             weights = np.sum(self.relu(grads_val)*alphas, axis=(1, 2))
         cam = np.zeros(target.shape[1:], dtype=np.float32)
 
+        for i, w in enumerate(weights):
+            if len(target.shape) == 3:
+                cam += w * target[i, :, :]
+            elif len(target.shape) == 2:
+                cam += w * target[i, :]
+
+        cam = np.maximum(cam, 0)
+        return cam
+
+# Adapt from https://github.com/zhoubolei/CAM/blob/master/pytorch_CAM.py
+class CAM:
+    def __init__(self, model, feature_module, target_layer_names, use_cuda):
+        self.model = model
+        if 'avgpool_layer' not in list(self.model._modules.keys()):
+            raise ValueError('CAM does not support model without global average pooling')
+        self.feature_module = feature_module
+        self.model.eval()
+        self.cuda = use_cuda
+        if self.cuda:
+            self.model = model.cuda()
+
+        self.extractor = ModelOutputs(self.model, self.feature_module, target_layer_names)
+
+    def forward(self, input):
+        return self.model(input)
+
+    def __call__(self, input, index=None):
+        if self.cuda:
+            features, output = self.extractor(input.cuda())
+        else:
+            features, output = self.extractor(input)
+
+        if index == None:
+            index = np.argmax(output.cpu().data.numpy())
+            print(f'The index has the largest maximum likelihood is {index}')
+
+        target = features[-1]
+        target = target.cpu().data.numpy()[0, :]
+
+        weights = np.squeeze(output.data.numpy())
+
+        cam = np.zeros(target.shape[1:], dtype=np.float32)
         for i, w in enumerate(weights):
             if len(target.shape) == 3:
                 cam += w * target[i, :, :]
