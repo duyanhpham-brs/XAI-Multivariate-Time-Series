@@ -8,7 +8,7 @@ class CAMFeatureMaps():
     def __init__(self, CAM_model):
         self.CAM_model = CAM_model
     
-    def load(self, model, module, target_layer_names):
+    def load(self, model, module, target_layer_names, has_globavgpool=True, final_depth=None):
         self.cam = self.CAM_model(model=model, feature_module=module, \
                     target_layer_names=[target_layer_names], use_cuda=False)
 
@@ -43,6 +43,11 @@ class CAMFeatureMaps():
 
 def map_activation_to_input(data, mask):
     plt.plot(data.T,c='black',alpha=0.2)
-    for j in range(3):
-        plt.scatter(np.arange(0,315,1),data.T[:,j],c=mask[:,j],cmap='brg',s=7)
+
+    if mask.shape[1] > 1:
+        for j in range(data.T.shape[1]):
+            plt.scatter(np.arange(0,data.T.shape[0],1),data.T[:,j],c=mask[:,j],s=7)
+    else:
+        for j in range(data.T.shape[1]):
+            plt.scatter(np.arange(0,data.T.shape[0],1),data.T[:,j],c=mask[:,0],s=7)
     plt.show()
