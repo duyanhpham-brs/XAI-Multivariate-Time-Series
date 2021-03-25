@@ -40,6 +40,7 @@ class CAM:
         weights = np.squeeze(output.data.numpy())
 
         cam = np.zeros(target.shape[1:], dtype=np.float32)
+        target = np.squeeze(target)
         for i, w in enumerate(weights):
             if len(target.shape) == 3:
                 cam += w * target[i, :, :]
