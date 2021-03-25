@@ -1,5 +1,6 @@
 import argparse
 import numpy as np
+import pandas as pd
 import torch
 from torchvision import models
 from torch import nn
@@ -79,3 +80,14 @@ class ModelOutputs():
                 x = module(x)
         
         return target_activations, x
+
+def upsample(mask, orig):
+    index = np.linspace(0,len(mask)-1,len(mask))
+    df = pd.DataFrame(mask)
+    df.set_index(index)
+
+    X_resampled = np.linspace(0,len(mask)-1,orig.shape[1])
+    df_resampled = df.reindex(df.index.union(X_resampled)).interpolate('values').loc[X_resampled]
+    mask = np.array(df_resampled)
+    
+    return mask
