@@ -42,10 +42,15 @@ class SwapLastDims(nn.Module):
         '''
         Swap two last dims.
         '''
+        batch_size = None
         if len(x.size()) == 3:
             batch_size = x.size(0)
         elif len(x.size()) == 2:
             batch_size = 1
-        shape = (batch_size, x.size(-1), x.size(-2))
+        
+        if batch_size is not None:
+            shape = (batch_size, x.size(-1), x.size(-2))
+        else:
+            shape = (x.size(-1))
         out = x.view(shape)
         return out

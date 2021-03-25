@@ -3,9 +3,53 @@ import torch
 from torch.autograd import Function
 from torchvision import models
 from torch import nn
+from torch.nn import functional as F
 from collections import OrderedDict
-from utils.gradient_extraction import ModelOutputs
+from utils.gradient_extraction import ModelOutputs, upsample
 
+# Adapt from https://github.com/zhoubolei/CAM/blob/master/pytorch_CAM.py
+class CAM:
+    def __init__(self, model, feature_module, target_layer_names, use_cuda):
+        self.model = model
+        if 'avgpool_layer' not in list(self.model._modules.keys()):
+            raise ValueError('CAM does not support model without global average pooling')
+        self.feature_module = feature_module
+        self.model.eval()
+        self.cuda = use_cuda
+        if self.cuda:
+            self.model = model.cuda()
+
+        self.extractor = ModelOutputs(self.model, self.feature_module, target_layer_names)
+
+    def forward(self, input):
+        return self.model(input)
+
+    def __call__(self, input, index=None):
+        if self.cuda:
+            features, output = self.extractor(input.cuda())
+        else:
+            features, output = self.extractor(input)
+
+        if index == None:
+            index = np.argmax(output.cpu().data.numpy())
+            print(f'The index has the largest maximum likelihood is {index}')
+
+        target = features[-1]
+        target = target.cpu().data.numpy()[0, :]
+
+        weights = np.squeeze(output.data.numpy())
+
+        cam = np.zeros(target.shape[1:], dtype=np.float32)
+        for i, w in enumerate(weights):
+            if len(target.shape) == 3:
+                cam += w * target[i, :, :]
+            elif len(target.shape) == 2:
+                cam += w * target[i, :]
+
+        cam = np.maximum(cam, 0)
+        return cam
+
+# Adapt from https://github.com/jacobgil/pytorch-grad-cam/blob/bf27469f5b3accf9535e04e52106e3f77f5e9cf5/gradcam.py#L31
 class GradCAM:
     def __init__(self, model, feature_module, target_layer_names, use_cuda, **kwargs):
         self.model = model
@@ -134,16 +178,15 @@ class GradCAMPlusPlus:
                 cam += w * target[i, :, :]
             elif len(target.shape) == 2:
                 cam += w * target[i, :]
+            elif len(target.shape) == 1 or target.shape[0]==1 and len(target.shape) == 2:
+                cam += w * target.reshape(-1)[i]
 
         cam = np.maximum(cam, 0)
         return cam
 
-# Adapt from https://github.com/zhoubolei/CAM/blob/master/pytorch_CAM.py
-class CAM:
-    def __init__(self, model, feature_module, target_layer_names, use_cuda):
+class ScoreCAM:
+    def __init__(self, model, feature_module, target_layer_names, use_cuda, **kwargs):
         self.model = model
-        if 'avgpool_layer' not in list(self.model._modules.keys()):
-            raise ValueError('CAM does not support model without global average pooling')
         self.feature_module = feature_module
         self.model.eval()
         self.cuda = use_cuda
@@ -156,6 +199,8 @@ class CAM:
         return self.model(input)
 
     def __call__(self, input, index=None):
+        b, c, h, w = input.size()
+
         if self.cuda:
             features, output = self.extractor(input.cuda())
         else:
@@ -165,17 +210,79 @@ class CAM:
             index = np.argmax(output.cpu().data.numpy())
             print(f'The index has the largest maximum likelihood is {index}')
 
-        target = features[-1]
-        target = target.cpu().data.numpy()[0, :]
+        one_hot = np.zeros((1, output.size()[-1]), dtype=np.float32)
+        one_hot[0][index] = 1
+        one_hot = torch.from_numpy(one_hot).requires_grad_(True)
+        if self.cuda:
+            one_hot = torch.sum(one_hot.cuda() * output)
+        else:
+            one_hot = torch.sum(one_hot * output)
 
-        weights = np.squeeze(output.data.numpy())
+        self.feature_module.zero_grad()
+        self.model.zero_grad()
+        one_hot.backward(retain_graph=True)
 
-        cam = np.zeros(target.shape[1:], dtype=np.float32)
-        for i, w in enumerate(weights):
-            if len(target.shape) == 3:
-                cam += w * target[i, :, :]
-            elif len(target.shape) == 2:
-                cam += w * target[i, :]
+        grads_val = self.extractor.get_gradients()[-1].cpu().data.numpy()
 
-        cam = np.maximum(cam, 0)
-        return cam
+        activations = features[-1]
+        if len(activations.size()) == 4:
+            b, k, u, v = activations.size()
+        elif len(activations.size()) == 3:
+            b, k, u = activations.size()
+        
+        score_saliency_map = torch.zeros((1, 1, h, w))
+
+        if torch.cuda.is_available():
+          activations = activations.cuda()
+          score_saliency_map = score_saliency_map.cuda()
+
+        with torch.no_grad():
+          for i in range(k):
+
+              # upsampling
+                if len(activations.size()) == 4:
+                    saliency_map = torch.unsqueeze(activations[:, i, :, :], 1)
+                elif len(activations.size()) == 3:
+                    saliency_map = torch.unsqueeze(activations[:, i, :], 2)
+                
+                if saliency_map.max() == saliency_map.min():
+                    continue
+                
+                # normalize to 0-1
+                norm_saliency_map = (saliency_map - saliency_map.min()) / (saliency_map.max() - saliency_map.min())
+
+                # how much increase if keeping the highlighted region
+                # predication on masked input
+                output_ = self.model(input * norm_saliency_map)
+                output_ = F.softmax(output_)
+                score = output_[0][index]
+
+                score_saliency_map +=  score * saliency_map
+                
+        score_saliency_map = F.relu(score_saliency_map)
+        score_saliency_map_min, score_saliency_map_max = score_saliency_map.min(), score_saliency_map.max()
+
+        if score_saliency_map_min == score_saliency_map_max:
+            return None
+
+        score_saliency_map = (score_saliency_map - score_saliency_map_min).div(score_saliency_map_max - score_saliency_map_min).data
+
+        return score_saliency_map
+
+        # target = features[-1]
+        # target = target.cpu().data.numpy()[0, :]
+
+        # if len(grads_val.shape) == 4:
+        #     weights = np.mean(grads_val, axis=(2, 3))[0, :]
+        # elif len(grads_val.shape) == 3:
+        #     weights = np.mean(grads_val, axis=(1, 2))
+        # cam = np.zeros(target.shape[1:], dtype=np.float32)
+
+        # for i, w in enumerate(weights):
+        #     if len(target.shape) == 3:
+        #         cam += w * target[i, :, :]
+        #     elif len(target.shape) == 2:
+        #         cam += w * target[i, :]
+
+        # cam = np.maximum(cam, 0)
+        # return cam
