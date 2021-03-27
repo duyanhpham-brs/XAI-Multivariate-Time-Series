@@ -38,10 +38,15 @@ class CAMFeatureMaps():
 def map_activation_to_input(data, mask):
     plt.plot(data.T,c='black',alpha=0.2)
 
-    if mask.shape[1] > 1:
-        for j in range(data.T.shape[1]):
-            plt.scatter(np.arange(0,data.T.shape[0],1),data.T[:,j],c=mask[:,j],s=7)
+    if len(mask.shape) > 1:
+        if mask.shape[1] > 1:
+            for j in range(data.T.shape[1]):
+                plt.scatter(np.arange(0,data.T.shape[0],1),data.T[:,j],c=mask[:,j],s=7)
+        else:
+            for j in range(data.T.shape[1]):
+                plt.scatter(np.arange(0,data.T.shape[0],1),data.T[:,j],c=mask[:,0],s=7)
     else:
         for j in range(data.T.shape[1]):
-            plt.scatter(np.arange(0,data.T.shape[0],1),data.T[:,j],c=mask[:,0],s=7)
+                plt.scatter(np.arange(0,data.T.shape[0],1),data.T[:,j],c=mask,s=7)
+
     plt.show()
