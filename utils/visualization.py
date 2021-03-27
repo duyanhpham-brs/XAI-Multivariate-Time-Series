@@ -8,9 +8,9 @@ class CAMFeatureMaps():
     def __init__(self, CAM_model):
         self.CAM_model = CAM_model
     
-    def load(self, model, module, target_layer_names, has_globavgpool=True, final_depth=None):
+    def load(self, model, module, target_layer_names, smooth_factor=0, std=1.0):
         self.cam = self.CAM_model(model=model, feature_module=module, \
-                    target_layer_names=[target_layer_names], use_cuda=False)
+                    target_layer_names=[target_layer_names], use_cuda=False, smooth_factor=smooth_factor, std=std)
 
     def show(self, data, index, upsampling = True):
         target_index = index
