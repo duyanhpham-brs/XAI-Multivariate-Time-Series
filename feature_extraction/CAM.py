@@ -40,6 +40,7 @@ class CAM:
         weights = np.squeeze(output.data.numpy())
 
         cam = np.zeros(target.shape[1:], dtype=np.float32)
+        target = np.squeeze(target)
         for i, w in enumerate(weights):
             if len(target.shape) == 3:
                 cam += w * target[i, :, :]
@@ -227,10 +228,10 @@ class ScoreCAM:
         activations = features[-1]
         if len(activations.size()) == 4:
             b, k, u, v = activations.size()
+            score_saliency_map = torch.zeros((1, 1, h, w))
         elif len(activations.size()) == 3:
             b, k, u = activations.size()
-        
-        score_saliency_map = torch.zeros((1, 1, h, w))
+            score_saliency_map = torch.zeros((1, 1, h, 1))
 
         if torch.cuda.is_available():
           activations = activations.cuda()
@@ -243,7 +244,7 @@ class ScoreCAM:
                 if len(activations.size()) == 4:
                     saliency_map = torch.unsqueeze(activations[:, i, :, :], 1)
                 elif len(activations.size()) == 3:
-                    saliency_map = torch.unsqueeze(activations[:, i, :], 2)
+                    saliency_map = torch.unsqueeze(torch.unsqueeze(activations[:, i, :], 2),0)
                 
                 if saliency_map.max() == saliency_map.min():
                     continue
@@ -254,10 +255,11 @@ class ScoreCAM:
                 # how much increase if keeping the highlighted region
                 # predication on masked input
                 output_ = self.model(input * norm_saliency_map)
-                output_ = F.softmax(output_)
+                output_ = F.softmax(output_, dim=1)
                 score = output_[0][index]
 
-                score_saliency_map +=  score * saliency_map
+                score_saliency_map_temp =  score * saliency_map
+                score_saliency_map += score_saliency_map_temp
                 
         score_saliency_map = F.relu(score_saliency_map)
         score_saliency_map_min, score_saliency_map_max = score_saliency_map.min(), score_saliency_map.max()
@@ -268,21 +270,3 @@ class ScoreCAM:
         score_saliency_map = (score_saliency_map - score_saliency_map_min).div(score_saliency_map_max - score_saliency_map_min).data
 
         return score_saliency_map
-
-        # target = features[-1]
-        # target = target.cpu().data.numpy()[0, :]
-
-        # if len(grads_val.shape) == 4:
-        #     weights = np.mean(grads_val, axis=(2, 3))[0, :]
-        # elif len(grads_val.shape) == 3:
-        #     weights = np.mean(grads_val, axis=(1, 2))
-        # cam = np.zeros(target.shape[1:], dtype=np.float32)
-
-        # for i, w in enumerate(weights):
-        #     if len(target.shape) == 3:
-        #         cam += w * target[i, :, :]
-        #     elif len(target.shape) == 2:
-        #         cam += w * target[i, :]
-
-        # cam = np.maximum(cam, 0)
-        # return cam
