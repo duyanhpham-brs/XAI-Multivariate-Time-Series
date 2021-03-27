@@ -185,6 +185,7 @@ class GradCAMPlusPlus:
         cam = np.maximum(cam, 0)
         return cam
 
+# Adapt from https://github.com/haofanwang/Score-CAM/blob/master/cam/scorecam.py
 class ScoreCAM:
     def __init__(self, model, feature_module, target_layer_names, use_cuda, **kwargs):
         self.model = model
@@ -268,6 +269,7 @@ class ScoreCAM:
 
         return score_saliency_map
 
+# Adapt from https://github.com/frgfm/torch-cam/blob/master/torchcam/cams/cam.py#L179
 class ActivationSmoothScoreCAM:
     def __init__(self, model, feature_module, target_layer_names, use_cuda, **kwargs):
         self.model = model
@@ -355,6 +357,7 @@ class ActivationSmoothScoreCAM:
 
         return score_saliency_map
 
+# Adapt from https://github.com/frgfm/torch-cam/blob/master/torchcam/cams/cam.py#L179
 class InputSmoothScoreCAM:
     def __init__(self, model, feature_module, target_layer_names, use_cuda, **kwargs):
         self.model = model
