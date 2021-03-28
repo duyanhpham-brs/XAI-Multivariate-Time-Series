@@ -6,33 +6,17 @@ from torch import nn
 from torch.nn import functional as F
 from collections import OrderedDict
 from utils.gradient_extraction import ModelOutputs, upsample
+from feature_extraction.UnitCAM import UnitCAM
 
 # Adapt from https://github.com/zhoubolei/CAM/blob/master/pytorch_CAM.py
-class CAM:
+class CAM(UnitCAM):
     def __init__(self, model, feature_module, target_layer_names, use_cuda, **kwargs):
-        self.model = model
+        super().__init__(model, feature_module, target_layer_names, use_cuda, **kwargs)
         if 'avgpool_layer' not in list(self.model._modules.keys()):
             raise ValueError('CAM does not support model without global average pooling')
-        self.feature_module = feature_module
-        self.model.eval()
-        self.cuda = use_cuda
-        if self.cuda:
-            self.model = model.cuda()
 
-        self.extractor = ModelOutputs(self.model, self.feature_module, target_layer_names)
-
-    def forward(self, input):
-        return self.model(input)
-
-    def __call__(self, input, index=None):
-        if self.cuda:
-            features, output = self.extractor(input.cuda())
-        else:
-            features, output = self.extractor(input)
-
-        if index == None:
-            index = np.argmax(output.cpu().data.numpy())
-            print(f'The index has the largest maximum likelihood is {index}')
+    def __call__(self, input_features, index=None):
+        features, output, index = self.extract_features(input_features, index)
 
         target = features[-1]
         target = target.cpu().data.numpy()[0, :]
@@ -41,39 +25,18 @@ class CAM:
 
         cam = np.zeros(target.shape[1:], dtype=np.float32)
         target = np.squeeze(target)
-        for i, w in enumerate(weights):
-            if len(target.shape) == 3:
-                cam += w * target[i, :, :]
-            elif len(target.shape) == 2:
-                cam += w * target[i, :]
 
-        cam = np.maximum(cam, 0)
+        cam = self.cam_weighted_sum(cam, weights, target)
+
         return cam
 
 # Adapt from https://github.com/jacobgil/pytorch-grad-cam/blob/bf27469f5b3accf9535e04e52106e3f77f5e9cf5/gradcam.py#L31
-class GradCAM:
+class GradCAM(UnitCAM):
     def __init__(self, model, feature_module, target_layer_names, use_cuda, **kwargs):
-        self.model = model
-        self.feature_module = feature_module
-        self.model.eval()
-        self.cuda = use_cuda
-        if self.cuda:
-            self.model = model.cuda()
-
-        self.extractor = ModelOutputs(self.model, self.feature_module, target_layer_names)
-
-    def forward(self, input):
-        return self.model(input)
-
-    def __call__(self, input, index=None):
-        if self.cuda:
-            features, output = self.extractor(input.cuda())
-        else:
-            features, output = self.extractor(input)
-
-        if index == None:
-            index = np.argmax(output.cpu().data.numpy())
-            print(f'The index has the largest maximum likelihood is {index}')
+        super().__init__(model, feature_module, target_layer_names, use_cuda, **kwargs)
+    
+    def calculate_gradients(self, input_features, index):
+        features, output, index = self.extract_features(input_features, index)
 
         one_hot = np.zeros((1, output.size()[-1]), dtype=np.float32)
         one_hot[0][index] = 1
@@ -92,35 +55,29 @@ class GradCAM:
         target = features[-1]
         target = target.cpu().data.numpy()[0, :]
 
+        return one_hot, grads_val, target
+
+    def map_gradients(self, grads_val, target):
         if len(grads_val.shape) == 4:
             weights = np.mean(grads_val, axis=(2, 3))[0, :]
         elif len(grads_val.shape) == 3:
             weights = np.mean(grads_val, axis=(1, 2))
         cam = np.zeros(target.shape[1:], dtype=np.float32)
 
-        for i, w in enumerate(weights):
-            if len(target.shape) == 3:
-                cam += w * target[i, :, :]
-            elif len(target.shape) == 2:
-                cam += w * target[i, :]
+        return cam, weights
 
-        cam = np.maximum(cam, 0)
+    def __call__(self, input_features, index=None):
+        _, grads_val, target = self.calculate_gradients(input_features, index)
+        
+        cam, weights = self.map_gradients(grads_val, target)
+        cam = self.cam_weighted_sum(cam, weights, target)
+
         return cam
 
 # Adapt from https://github.com/adityac94/Grad_CAM_plus_plus/blob/4a9faf6ac61ef0c56e19b88d8560b81cd62c5017/misc/utils.py#L51
-class GradCAMPlusPlus:
+class GradCAMPlusPlus(GradCAM):
     def __init__(self, model, feature_module, target_layer_names, use_cuda, **kwargs):
-        self.model = model
-        self.feature_module = feature_module
-        self.model.eval()
-        self.cuda = use_cuda
-        if self.cuda:
-            self.model = model.cuda()
-
-        self.extractor = ModelOutputs(self.model, self.feature_module, target_layer_names)
-
-    def forward(self, input):
-        return self.model(input)
+        super().__init__(model, feature_module, target_layer_names, use_cuda, **kwargs)
 
     @staticmethod
     def relu(x):
@@ -128,33 +85,7 @@ class GradCAMPlusPlus:
         cam = cam/np.max(cam)
         return cam
 
-    def __call__(self, input, index=None):
-        if self.cuda:
-            features, output = self.extractor(input.cuda())
-        else:
-            features, output = self.extractor(input)
-
-        if index == None:
-            index = np.argmax(output.cpu().data.numpy())
-            print(f'The index has the largest maximum likelihood is {index}')
-
-        one_hot = np.zeros((1, output.size()[-1]), dtype=np.float32)
-        one_hot[0][index] = 1
-        one_hot = torch.from_numpy(one_hot).requires_grad_(True)
-        if self.cuda:
-            one_hot = torch.sum(one_hot.cuda() * output)
-        else:
-            one_hot = torch.sum(one_hot * output)
-
-        self.feature_module.zero_grad()
-        self.model.zero_grad()
-        one_hot.backward(retain_graph=True)
-
-        grads_val = self.extractor.get_gradients()[-1].cpu().data.numpy()
-
-        target = features[-1]
-        target = target.cpu().data.numpy()[0, :]
-
+    def extract_higher_level_gradient(self, one_hot, target):
         #second_derivative
         second_derivative = torch.exp(one_hot.detach())*target 
 
@@ -168,49 +99,35 @@ class GradCAMPlusPlus:
         alpha_denom = np.where(alpha_denom != 0.0, alpha_denom, np.ones(alpha_denom.shape))
         alphas = alpha_num/alpha_denom
 
+        return alphas
+
+    def map_gradients(self, grads_val, target, alphas):
         if len(grads_val.shape) == 4:
             weights = np.sum(self.relu(grads_val)*alphas, axis=(2, 3))[0, :]
         elif len(grads_val.shape) == 3:
             weights = np.sum(self.relu(grads_val)*alphas, axis=(1, 2))
         cam = np.zeros(target.shape[1:], dtype=np.float32)
 
-        for i, w in enumerate(weights):
-            if len(target.shape) == 3:
-                cam += w * target[i, :, :]
-            elif len(target.shape) == 2:
-                cam += w * target[i, :]
-            elif len(target.shape) == 1 or target.shape[0]==1 and len(target.shape) == 2:
-                cam += w * target.reshape(-1)[i]
+        return cam, weights
 
-        cam = np.maximum(cam, 0)
+    def __call__(self, input_features, index=None):
+        one_hot, grads_val, target = self.calculate_gradients(input_features, index)
+        
+        alphas = self.extract_higher_level_gradient(one_hot, target)
+        cam, weights = self.map_gradients(grads_val, target, alphas)
+        cam = self.cam_weighted_sum(cam, weights, target)
+
         return cam
 
 # Adapt from https://github.com/haofanwang/Score-CAM/blob/master/cam/scorecam.py
-class ScoreCAM:
+class ScoreCAM(UnitCAM):
     def __init__(self, model, feature_module, target_layer_names, use_cuda, **kwargs):
-        self.model = model
-        self.feature_module = feature_module
-        self.model.eval()
-        self.cuda = use_cuda
-        if self.cuda:
-            self.model = model.cuda()
+        super().__init__(model, feature_module, target_layer_names, use_cuda, **kwargs)
+    
+    def forward_saliency_map(self, input_features, index):
+        b, c, h, w = input_features.size()
 
-        self.extractor = ModelOutputs(self.model, self.feature_module, target_layer_names)
-
-    def forward(self, input):
-        return self.model(input)
-
-    def __call__(self, input, index=None):
-        b, c, h, w = input.size()
-
-        if self.cuda:
-            features, output = self.extractor(input.cuda())
-        else:
-            features, output = self.extractor(input)
-
-        if index == None:
-            index = np.argmax(output.cpu().data.numpy())
-            print(f'The index has the largest maximum likelihood is {index}')
+        features, output, index = self.extract_features(input_features, index)
 
         one_hot = np.zeros((1, output.size()[-1]), dtype=np.float32)
         one_hot[0][index] = 1
@@ -235,9 +152,17 @@ class ScoreCAM:
           activations = activations.cuda()
           score_saliency_map = score_saliency_map.cuda()
 
+        return activations, score_saliency_map, k, index
+
+    def reforward_saliency_map(self, input_features, norm_saliency_map):
+        output_ = self.model(input_features * norm_saliency_map)
+
+        return output_
+    
+    def compute_score_saliency_map(self, input_features, index):
+        activations, score_saliency_map, k, index = self.forward_saliency_map(input_features, index)
         with torch.no_grad():
           for i in range(k):
-
               # upsampling
                 if len(activations.size()) == 4:
                     saliency_map = torch.unsqueeze(activations[:, i, :, :], 1)
@@ -252,7 +177,7 @@ class ScoreCAM:
 
                 # how much increase if keeping the highlighted region
                 # predication on masked input
-                output_ = self.model(input * norm_saliency_map)
+                output_ = self.reforward_saliency_map(input_features, norm_saliency_map)
                 output_ = F.softmax(output_, dim=1)
                 score = output_[0][index]
 
@@ -269,61 +194,30 @@ class ScoreCAM:
 
         return score_saliency_map
 
+    def __call__(self, input_features, index=None):
+        score_saliency_map = self.compute_score_saliency_map(input_features, index)
+
+        return score_saliency_map
+        
+        
+
 # Adapt from https://github.com/frgfm/torch-cam/blob/master/torchcam/cams/cam.py#L179
-class ActivationSmoothScoreCAM:
+class ActivationSmoothScoreCAM(ScoreCAM):
     def __init__(self, model, feature_module, target_layer_names, use_cuda, **kwargs):
-        self.model = model
-        self.feature_module = feature_module
-        self.model.eval()
-        self.cuda = use_cuda
-        if self.cuda:
-            self.model = model.cuda()
+        super().__init__(model, feature_module, target_layer_names, use_cuda, **kwargs)
         self.smooth_factor = kwargs['smooth_factor']
         self.std = kwargs['std']
         self._distrib = torch.distributions.normal.Normal(0, self.std)
 
-        self.extractor = ModelOutputs(self.model, self.feature_module, target_layer_names)
+    def reforward_saliency_map(self, input_features, norm_saliency_map):
+        output_ = self.model(input_features * (norm_saliency_map + self._distrib.sample(input_features.size())))
 
-    def forward(self, input):
-        return self.model(input)
-
-    def __call__(self, input, index=None):
-        b, c, h, w = input.size()
-
-        if self.cuda:
-            features, output = self.extractor(input.cuda())
-        else:
-            features, output = self.extractor(input)
-
-        if index == None:
-            index = np.argmax(output.cpu().data.numpy())
-            print(f'The index has the largest maximum likelihood is {index}')
-
-        one_hot = np.zeros((1, output.size()[-1]), dtype=np.float32)
-        one_hot[0][index] = 1
-        one_hot = torch.from_numpy(one_hot).requires_grad_(True)
-        if self.cuda:
-            one_hot = torch.sum(one_hot.cuda() * output)
-        else:
-            one_hot = torch.sum(one_hot * output)
-
-        self.feature_module.zero_grad()
-        self.model.zero_grad()
-
-        activations = features[-1]
-        if len(activations.size()) == 4:
-            b, k, u, v = activations.size()
-            score_saliency_map = torch.zeros((1, 1, h, w))
-        elif len(activations.size()) == 3:
-            b, k, u = activations.size()
-            score_saliency_map = torch.zeros((1, 1, h, 1))
-
-        if torch.cuda.is_available():
-          activations = activations.cuda()
-          score_saliency_map = score_saliency_map.cuda()
-
-        for idx in range(self.smooth_factor):
-            with torch.no_grad():
+        return output_
+    
+    def compute_score_saliency_map(self, input_features, index):
+        activations, score_saliency_map, k, index = self.forward_saliency_map(input_features, index)
+        with torch.no_grad():
+            for idx in range(self.smooth_factor):
                 for i in range(k):
                     # upsampling
                         if len(activations.size()) == 4:
@@ -339,7 +233,7 @@ class ActivationSmoothScoreCAM:
 
                         # how much increase if keeping the highlighted region
                         # predication on masked input
-                        output_ = self.model(input * (norm_saliency_map + self._distrib.sample(input.size())))
+                        output_ = self.reforward_saliency_map(input_features, norm_saliency_map)
                         output_ = F.softmax(output_, dim=1)
                         score = output_[0][index]
 
@@ -358,60 +252,22 @@ class ActivationSmoothScoreCAM:
         return score_saliency_map
 
 # Adapt from https://github.com/frgfm/torch-cam/blob/master/torchcam/cams/cam.py#L179
-class InputSmoothScoreCAM:
+class InputSmoothScoreCAM(ScoreCAM):
     def __init__(self, model, feature_module, target_layer_names, use_cuda, **kwargs):
-        self.model = model
-        self.feature_module = feature_module
-        self.model.eval()
-        self.cuda = use_cuda
-        if self.cuda:
-            self.model = model.cuda()
+        super().__init__(model, feature_module, target_layer_names, use_cuda, **kwargs)
         self.smooth_factor = kwargs['smooth_factor']
         self.std = kwargs['std']
         self._distrib = torch.distributions.normal.Normal(0, self.std)
 
-        self.extractor = ModelOutputs(self.model, self.feature_module, target_layer_names)
+    def reforward_saliency_map(self, input_features, norm_saliency_map):
+        output_ = self.model((input_features + self._distrib.sample(input_features.size())) * norm_saliency_map)
 
-    def forward(self, input):
-        return self.model(input)
-
-    def __call__(self, input, index=None):
-        b, c, h, w = input.size()
-
-        if self.cuda:
-            features, output = self.extractor(input.cuda())
-        else:
-            features, output = self.extractor(input)
-
-        if index == None:
-            index = np.argmax(output.cpu().data.numpy())
-            print(f'The index has the largest maximum likelihood is {index}')
-
-        one_hot = np.zeros((1, output.size()[-1]), dtype=np.float32)
-        one_hot[0][index] = 1
-        one_hot = torch.from_numpy(one_hot).requires_grad_(True)
-        if self.cuda:
-            one_hot = torch.sum(one_hot.cuda() * output)
-        else:
-            one_hot = torch.sum(one_hot * output)
-
-        self.feature_module.zero_grad()
-        self.model.zero_grad()
-
-        activations = features[-1]
-        if len(activations.size()) == 4:
-            b, k, u, v = activations.size()
-            score_saliency_map = torch.zeros((1, 1, h, w))
-        elif len(activations.size()) == 3:
-            b, k, u = activations.size()
-            score_saliency_map = torch.zeros((1, 1, h, 1))
-
-        if torch.cuda.is_available():
-          activations = activations.cuda()
-          score_saliency_map = score_saliency_map.cuda()
-
-        for idx in range(self.smooth_factor):
-            with torch.no_grad():
+        return output_
+    
+    def compute_score_saliency_map(self, input_features, index):
+        activations, score_saliency_map, k, index = self.forward_saliency_map(input_features, index)
+        with torch.no_grad():
+            for idx in range(self.smooth_factor):
                 for i in range(k):
                     # upsampling
                         if len(activations.size()) == 4:
@@ -427,7 +283,7 @@ class InputSmoothScoreCAM:
 
                         # how much increase if keeping the highlighted region
                         # predication on masked input
-                        output_ = self.model((input + self._distrib.sample(input.size())) * norm_saliency_map )
+                        output_ = self.reforward_saliency_map(input_features, norm_saliency_map)
                         output_ = F.softmax(output_, dim=1)
                         score = output_[0][index]
 
