@@ -15,7 +15,7 @@ class UnitCAM:
     def forward(self, input_features):
         return self.model(input_features)
 
-    def extract_features(self, input_features, index):
+    def extract_features(self, input_features, index, print_out=True):
         if self.cuda:
             features, output = self.extractor(input_features.cuda())
         else:
@@ -23,7 +23,8 @@ class UnitCAM:
 
         if index == None:
             index = np.argmax(output.cpu().data.numpy())
-            print(f'The index has the largest maximum likelihood is {index}')
+            if print_out:
+                print(f'The index has the largest maximum likelihood is {index}')
 
         return features, output, index
 

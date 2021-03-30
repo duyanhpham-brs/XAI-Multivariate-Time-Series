@@ -35,8 +35,8 @@ class GradCAM(UnitCAM):
     def __init__(self, model, feature_module, target_layer_names, use_cuda, **kwargs):
         super().__init__(model, feature_module, target_layer_names, use_cuda, **kwargs)
     
-    def calculate_gradients(self, input_features, index):
-        features, output, index = self.extract_features(input_features, index)
+    def calculate_gradients(self, input_features, index, print_out=True):
+        features, output, index = self.extract_features(input_features, index, print_out)
 
         one_hot = np.zeros((1, output.size()[-1]), dtype=np.float32)
         one_hot[0][index] = 1
@@ -50,7 +50,7 @@ class GradCAM(UnitCAM):
         self.model.zero_grad()
         one_hot.backward(retain_graph=True)
 
-        grads_val = self.extractor.get_gradients()[-1].cpu().data.numpy()
+        grads_val = self.extractor.get_gradients()[-1].cpu().data
 
         target = features[-1]
         target = target.cpu().data.numpy()[0, :]
@@ -59,9 +59,9 @@ class GradCAM(UnitCAM):
 
     def map_gradients(self, grads_val, target):
         if len(grads_val.shape) == 4:
-            weights = np.mean(grads_val, axis=(2, 3))[0, :]
+            weights = np.mean(grads_val.numpy(), axis=(2, 3))[0, :]
         elif len(grads_val.shape) == 3:
-            weights = np.mean(grads_val, axis=(1, 2))
+            weights = np.mean(grads_val.numpy(), axis=(1, 2))
         cam = np.zeros(target.shape[1:], dtype=np.float32)
 
         return cam, weights
@@ -82,20 +82,33 @@ class GradCAMPlusPlus(GradCAM):
     @staticmethod
     def relu(x):
         cam = np.maximum(x, 0)
-        cam = cam/np.max(cam)
+        cam = cam/(np.max(cam)+1e-9)
         return cam
 
-    def extract_higher_level_gradient(self, one_hot, target):
+    @staticmethod
+    def compute_second_derivative(one_hot, target):
         #second_derivative
-        second_derivative = torch.exp(one_hot.detach())*target 
+        second_derivative = torch.exp(one_hot.detach())*target
 
-        #triple_derivative
-        triple_derivative = torch.exp(one_hot.detach())*target*target
+        return second_derivative
 
+    @staticmethod
+    def compute_third_derivative(one_hot, target):
+        #third_derivative
+        third_derivative = torch.exp(one_hot.detach())*target*target
+
+        return third_derivative
+
+    @staticmethod
+    def compute_global_sum(one_hot):
+        #global sum
         global_sum = np.sum(one_hot.detach().numpy(), axis=0)
 
+        return global_sum
+
+    def extract_higher_level_gradient(self, global_sum, second_derivative, third_derivative):      
         alpha_num = second_derivative.numpy()
-        alpha_denom = second_derivative.numpy()*2.0 + triple_derivative.numpy()*global_sum
+        alpha_denom = second_derivative.numpy()*2.0 + third_derivative.numpy()*global_sum
         alpha_denom = np.where(alpha_denom != 0.0, alpha_denom, np.ones(alpha_denom.shape))
         alphas = alpha_num/alpha_denom
 
@@ -103,18 +116,74 @@ class GradCAMPlusPlus(GradCAM):
 
     def map_gradients(self, grads_val, target, alphas):
         if len(grads_val.shape) == 4:
-            weights = np.sum(self.relu(grads_val)*alphas, axis=(2, 3))[0, :]
+            weights = np.sum(F.relu(grads_val).numpy()*alphas, axis=(2, 3))[0, :]
         elif len(grads_val.shape) == 3:
-            weights = np.sum(self.relu(grads_val)*alphas, axis=(1, 2))
+            weights = np.sum(F.relu(grads_val).numpy()*alphas, axis=(1, 2))
         cam = np.zeros(target.shape[1:], dtype=np.float32)
 
         return cam, weights
 
     def __call__(self, input_features, index=None):
         one_hot, grads_val, target = self.calculate_gradients(input_features, index)
-        
-        alphas = self.extract_higher_level_gradient(one_hot, target)
+        second_derivative = self.compute_second_derivative(one_hot, target)
+        third_derivative = self.compute_third_derivative(one_hot, target)
+        global_sum = self.compute_global_sum(one_hot)
+        alphas = self.extract_higher_level_gradient(global_sum, second_derivative, third_derivative)
         cam, weights = self.map_gradients(grads_val, target, alphas)
+        cam = self.cam_weighted_sum(cam, weights, target)
+
+        return cam
+
+# Adapt from https://github.com/frgfm/torch-cam/blob/master/torchcam/cams/gradcam.py#L164
+class SmoothGradCAMPlusPlus(GradCAMPlusPlus):
+    def __init__(self, model, feature_module, target_layer_names, use_cuda, **kwargs):
+        super().__init__(model, feature_module, target_layer_names, use_cuda, **kwargs)
+        self.smooth_factor = kwargs['smooth_factor']
+        self.std = kwargs['std']
+        self._distrib = torch.distributions.normal.Normal(0, self.std)
+
+    def extract_higher_level_gradient(self, global_sum, second_derivative, third_derivative):      
+        alpha_num = second_derivative.numpy()
+        alpha_denom = second_derivative.numpy()*2.0 + third_derivative.numpy()*global_sum
+        alpha_denom = np.where(alpha_denom != 0.0, alpha_denom, np.ones(alpha_denom.shape))
+        alphas = alpha_num/alpha_denom
+
+        return alphas
+
+    def __call__(self, input_features, index=None):
+        grads_vals = None
+        second_derivatives = None
+        third_derivatives = None
+        for i in range(self.smooth_factor):
+            one_hot, grads_val, target = self.calculate_gradients(input_features + self._distrib.sample(input_features.size()), index, False)
+            second_derivative = self.compute_second_derivative(one_hot, target)
+            third_derivative = self.compute_third_derivative(one_hot, target)
+            if grads_vals is None or second_derivatives is None or third_derivatives is None:
+                grads_vals = grads_val
+                second_derivatives = second_derivative
+                third_derivatives = third_derivative
+            else:
+                grads_vals += grads_val
+                second_derivatives += second_derivative
+                third_derivatives += third_derivative
+            
+            second_derivatives = F.relu(second_derivatives)
+            second_derivatives_min, second_derivatives_max = second_derivatives.min(), second_derivatives.max()
+            if second_derivatives_min == second_derivatives_max:
+                return None
+            second_derivatives = (second_derivatives - second_derivatives_min).div(second_derivatives_min - second_derivatives_max).data
+
+            third_derivatives = F.relu(third_derivatives)
+            third_derivatives_min, third_derivatives_max = third_derivatives.min(), third_derivatives.max()
+            if third_derivatives_min == third_derivatives_max:
+                return None
+            third_derivatives = (third_derivatives - third_derivatives_min).div(third_derivatives_min - third_derivatives_max).data
+        
+        one_hot, _, target = self.calculate_gradients(input_features, index)
+        global_sum = self.compute_global_sum(one_hot)
+
+        alphas = self.extract_higher_level_gradient(global_sum, second_derivatives.div_(self.smooth_factor),third_derivatives.div_(self.smooth_factor))
+        cam, weights = self.map_gradients(grads_vals.div_(self.smooth_factor), target, alphas)
         cam = self.cam_weighted_sum(cam, weights, target)
 
         return cam
@@ -164,25 +233,25 @@ class ScoreCAM(UnitCAM):
         with torch.no_grad():
           for i in range(k):
               # upsampling
-                if len(activations.size()) == 4:
-                    saliency_map = torch.unsqueeze(activations[:, i, :, :], 1)
-                elif len(activations.size()) == 3:
-                    saliency_map = torch.unsqueeze(torch.unsqueeze(activations[:, i, :], 2),0)
-                
-                if saliency_map.max() == saliency_map.min():
-                    continue
-                
-                # normalize to 0-1
-                norm_saliency_map = (saliency_map - saliency_map.min()) / (saliency_map.max() - saliency_map.min())
+            if len(activations.size()) == 4:
+                saliency_map = torch.unsqueeze(activations[:, i, :, :], 1)
+            elif len(activations.size()) == 3:
+                saliency_map = torch.unsqueeze(torch.unsqueeze(activations[:, i, :], 2),0)
+            
+            if saliency_map.max() == saliency_map.min():
+                continue
+            
+            # normalize to 0-1
+            norm_saliency_map = (saliency_map - saliency_map.min()) / (saliency_map.max() - saliency_map.min())
 
-                # how much increase if keeping the highlighted region
-                # predication on masked input
-                output_ = self.reforward_saliency_map(input_features, norm_saliency_map)
-                output_ = F.softmax(output_, dim=1)
-                score = output_[0][index]
+            # how much increase if keeping the highlighted region
+            # predication on masked input
+            output_ = self.reforward_saliency_map(input_features, norm_saliency_map)
+            output_ = F.softmax(output_, dim=1)
+            score = output_[0][index]
 
-                score_saliency_map_temp =  score * saliency_map
-                score_saliency_map += score_saliency_map_temp
+            score_saliency_map_temp =  score * saliency_map
+            score_saliency_map += score_saliency_map_temp
                 
         score_saliency_map = F.relu(score_saliency_map)
         score_saliency_map_min, score_saliency_map_max = score_saliency_map.min(), score_saliency_map.max()
@@ -220,25 +289,25 @@ class ActivationSmoothScoreCAM(ScoreCAM):
             for idx in range(self.smooth_factor):
                 for i in range(k):
                     # upsampling
-                        if len(activations.size()) == 4:
-                            saliency_map = torch.unsqueeze(activations[:, i, :, :], 1)
-                        elif len(activations.size()) == 3:
-                            saliency_map = torch.unsqueeze(torch.unsqueeze(activations[:, i, :], 2),0)
-                        
-                        if saliency_map.max() == saliency_map.min():
-                            continue
-                        
-                        # normalize to 0-1
-                        norm_saliency_map = (saliency_map - saliency_map.min()) / (saliency_map.max() - saliency_map.min())
+                    if len(activations.size()) == 4:
+                        saliency_map = torch.unsqueeze(activations[:, i, :, :], 1)
+                    elif len(activations.size()) == 3:
+                        saliency_map = torch.unsqueeze(torch.unsqueeze(activations[:, i, :], 2),0)
+                    
+                    if saliency_map.max() == saliency_map.min():
+                        continue
+                    
+                    # normalize to 0-1
+                    norm_saliency_map = (saliency_map - saliency_map.min()) / (saliency_map.max() - saliency_map.min())
 
-                        # how much increase if keeping the highlighted region
-                        # predication on masked input
-                        output_ = self.reforward_saliency_map(input_features, norm_saliency_map)
-                        output_ = F.softmax(output_, dim=1)
-                        score = output_[0][index]
+                    # how much increase if keeping the highlighted region
+                    # predication on masked input
+                    output_ = self.reforward_saliency_map(input_features, norm_saliency_map)
+                    output_ = F.softmax(output_, dim=1)
+                    score = output_[0][index]
 
-                        score_saliency_map_temp =  score * saliency_map
-                        score_saliency_map += score_saliency_map_temp
+                    score_saliency_map_temp =  score * saliency_map
+                    score_saliency_map += score_saliency_map_temp
                         
                 score_saliency_map = F.relu(score_saliency_map)
                 score_saliency_map_min, score_saliency_map_max = score_saliency_map.min(), score_saliency_map.max()
