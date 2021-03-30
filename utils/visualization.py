@@ -13,40 +13,41 @@ class CAMFeatureMaps():
                     target_layer_names=[target_layer_names], use_cuda=False, smooth_factor=smooth_factor, std=std)
 
     def show(self, data, index, upsampling = True):
+        self.data = data
         target_index = index
-        X_inp = torch.from_numpy(data.reshape(1,-1,data.shape[0]))
+        X_inp = torch.from_numpy(self.data.reshape(1,-1,self.data.shape[0]))
         X_inp.unsqueeze_(0)
         X_inp = X_inp.float().requires_grad_(True)
         mask = np.squeeze(self.cam(X_inp, target_index))
         if len(mask.shape)==2:
             plt.figure(figsize=(200,60))
-            plt.imshow(mask.T)
+            plt.imshow(mask.T, cmap="rainbow")
             plt.yticks([i for i in range(mask.shape[1])])
             plt.grid()
             plt.show()
         elif len(mask.shape)==1:
             plt.figure(figsize=(200,60))
-            plt.imshow(mask.reshape(1,-1))
+            plt.imshow(mask.reshape(1,-1), cmap="rainbow")
             plt.grid()
             plt.show()
 
         if upsampling:
-            mask = upsample(mask, data)
+            mask = upsample(mask, self.data)
 
         return mask
 
-def map_activation_to_input(data, mask):
-    plt.plot(data.T,c='black',alpha=0.2)
+    def map_activation_to_input(self, mask):
+        plt.plot(self.data.T,c='black',alpha=0.2)
 
-    if len(mask.shape) > 1:
-        if mask.shape[1] > 1:
-            for j in range(data.T.shape[1]):
-                plt.scatter(np.arange(0,data.T.shape[0],1),data.T[:,j],c=mask[:,j],s=7)
+        if len(mask.shape) > 1:
+            if mask.shape[1] > 1:
+                for j in range(self.data.T.shape[1]):
+                    plt.scatter(np.arange(0, self.data.T.shape[0],1), self.data.T[:,j], c=mask[:,j], cmap="rainbow", s=7)
+            else:
+                for j in range(self.data.T.shape[1]):
+                    plt.scatter(np.arange(0, self.data.T.shape[0],1), self.data.T[:,j], c=mask[:,0], cmap="rainbow", s=7)
         else:
-            for j in range(data.T.shape[1]):
-                plt.scatter(np.arange(0,data.T.shape[0],1),data.T[:,j],c=mask[:,0],s=7)
-    else:
-        for j in range(data.T.shape[1]):
-                plt.scatter(np.arange(0,data.T.shape[0],1),data.T[:,j],c=mask,s=7)
+            for j in range(self.data.T.shape[1]):
+                    plt.scatter(np.arange(0, self.data.T.shape[0],1), self.data.T[:,j], c=mask, cmap="rainbow", s=7)
 
-    plt.show()
+        plt.show()
