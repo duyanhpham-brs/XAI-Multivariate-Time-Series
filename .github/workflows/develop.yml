@@ -18,6 +18,7 @@ jobs:
         python-version: 3.7
     - name: Install dependencies
       run: |
+        $CONDA/bin/conda config --set restore_free_channel true
         $CONDA/bin/conda env update --file environment.yml --name base
     - name: Test with pytest
       run: |
