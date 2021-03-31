@@ -22,7 +22,10 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Lint
       run: |
-        pylint .
+        python lint.py --path ./feature_extraction --threshold 9
+        python lint.py --path ./models --threshold 9
+        python lint.py --path ./tests --threshold 9
+        python lint.py --path ./utils --threshold 9
     - name: Test with pytest
       run: |
         pytest tests/unit_tests

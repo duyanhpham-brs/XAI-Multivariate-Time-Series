@@ -16,6 +16,8 @@ scipy = "*"
 matplotlib = "*"
 sklearn = "*"
 pylint = "*"
+logging = "*"
+argparse = "*"
 
 [dev-packages]
 
