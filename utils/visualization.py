@@ -24,12 +24,12 @@ class CAMFeatureMaps():
             plt.imshow(mask.T, cmap="rainbow")
             plt.yticks([i for i in range(mask.shape[1])])
             plt.grid()
-            plt.show()
+            plt.show(block=False)
         elif len(mask.shape)==1:
             plt.figure(figsize=(200,60))
             plt.imshow(mask.reshape(1,-1), cmap="rainbow")
             plt.grid()
-            plt.show()
+            plt.show(block=False)
 
         if upsampling:
             mask = upsample(mask, self.data)
@@ -48,6 +48,6 @@ class CAMFeatureMaps():
                     plt.scatter(np.arange(0, self.data.T.shape[0],1), self.data.T[:,j], c=mask[:,0], cmap="rainbow", s=7)
         else:
             for j in range(self.data.T.shape[1]):
-                    plt.scatter(np.arange(0, self.data.T.shape[0],1), self.data.T[:,j], c=mask, cmap="rainbow", s=7)
+                plt.scatter(np.arange(0, self.data.T.shape[0],1), self.data.T[:,j], c=mask, cmap="rainbow", s=7)
 
         plt.show()
