@@ -22,10 +22,7 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Lint
       run: |
-        pylint feature_extraction
-        pylint models
-        pylint tests
-        pylint utils
+        pylint .
     - name: Test with pytest
       run: |
         pytest tests/unit_tests
