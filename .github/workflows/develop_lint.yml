@@ -1,4 +1,4 @@
-name: develop_pullrequests
+name: develop_branch_lint
 on:
   pull_request:
     branches: 
@@ -25,6 +25,3 @@ jobs:
         python lint.py --path ./models --threshold 9
         python lint.py --path ./tests --threshold 9
         python lint.py --path ./utils --threshold 9
-    - name: Test with pytest
-      run: |
-        pytest tests/unit_tests

@@ -18,6 +18,7 @@ sklearn = "*"
 pylint = "*"
 logging = "*"
 argparse = "*"
+pytest = "*"
 
 [dev-packages]
 
