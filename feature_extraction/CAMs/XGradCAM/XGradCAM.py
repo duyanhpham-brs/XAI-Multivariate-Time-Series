@@ -20,12 +20,9 @@ class XGradCAM(GradCAM):
         return cam, weights
 
     def __call__(self, input_features, index=None):
-        one_hot, grads_val, target = self.calculate_gradients(input_features, index)
-        second_derivative = self.compute_second_derivative(one_hot, target)
-        third_derivative = self.compute_third_derivative(one_hot, target)
-        global_sum = self.compute_global_sum(one_hot)
-        alphas = self.extract_higher_level_gradient(global_sum, second_derivative, third_derivative)
-        cam, weights = self.map_gradients(grads_val, target, alphas)
+        _, grads_val, target = self.calculate_gradients(input_features, index)
+        
+        cam, weights = self.map_gradients(grads_val, target)
         cam = self.cam_weighted_sum(cam, weights, target)
 
         return cam

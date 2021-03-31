@@ -1,5 +1,6 @@
 from feature_extraction.CAMs.CAM import CAM
 from feature_extraction.CAMs.GradCAM import GradCAM
+from feature_extraction.CAMs.XGradCAM import XGradCAM
 from feature_extraction.CAMs.GradCAMPlusPlus import GradCAMPlusPlus
 from feature_extraction.CAMs.SmoothGradCAMPlusPlus import SmoothGradCAMPlusPlus
 from feature_extraction.CAMs.ScoreCAM import ScoreCAM

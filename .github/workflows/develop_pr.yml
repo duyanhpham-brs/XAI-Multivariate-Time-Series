@@ -14,11 +14,17 @@ jobs:
     - name: Set up Python 3.8
       uses: actions/setup-python@v2
       with:
-        python-version: 3.7
+        python-version: 3.9
     - name: Install dependencies
       run: |
-        $CONDA/bin/conda config --set restore_free_channel true
-        $CONDA/bin/conda env create --file environment.yml --name base
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - name: Lint
+      run: |
+        pylint feature_extraction
+        pylint models
+        pylint tests
+        pylint utils
     - name: Test with pytest
       run: |
         pytest tests/unit_tests
