@@ -1,13 +1,10 @@
-import argparse
+import torch
 import numpy as np
 import pandas as pd
-import torch
-from torchvision import models
-from torch import nn
 
 # Adapt from https://github.com/jacobgil/pytorch-grad-cam/blob/bf27469f5b3accf9535e04e52106e3f77f5e9cf5/gradcam.py#L9
 class FeatureExtractor():
-    """ Class for extracting activations and 
+    """ Class for extracting activations and
     registering gradients from targetted intermediate layers """
 
     def __init__(self, model, target_layers):
@@ -52,20 +49,20 @@ class ModelOutputs():
             elif "_b" in name.lower():
                 if module == self.feature_module:
                     target_activations, temp = self.feature_extractor(x)
-                    net_type, num_layer, num_branch = name.split('_')
+                    _, _, num_branch = name.split('_')
                     if not num_branch in list(branches.keys()):
                         branches[num_branch] = []
                         branches[num_branch].append(temp)
                     else:
                         branches[num_branch].append(temp)
                 else:
-                    net_type, num_layer, num_branch = name.split('_')
+                    _, _, num_branch = name.split('_')
                     if not num_branch in list(branches.keys()):
                         branches[num_branch] = []
                         branches[num_branch].append(module(x))
                     else:
                         branches[num_branch].append(module(x))
-                    
+
             elif "avgpool" in name.lower():
                 x = module(x)
                 x = x.view(x.size(0),-1)
@@ -78,7 +75,7 @@ class ModelOutputs():
                 elif len(x.size()) == 4:
                     x = x.view(x.size(0),x.size(-1), -1)
                 x = module(x)
-        
+
         return target_activations, x
 
 def upsample(mask, orig):
@@ -89,5 +86,5 @@ def upsample(mask, orig):
     X_resampled = np.linspace(0,len(mask)-1,orig.shape[1])
     df_resampled = df.reindex(df.index.union(X_resampled)).interpolate('values').loc[X_resampled]
     mask = np.array(df_resampled)
-    
+
     return mask

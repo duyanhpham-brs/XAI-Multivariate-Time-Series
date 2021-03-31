@@ -1,11 +1,11 @@
+from collections import OrderedDict
 import torch
 import torch.nn as nn
-from collections import OrderedDict
 from utils.training_helpers import View
 
 class MTEX(nn.Module):
     def __init__(self, time_length, feature_length, n_classes):
-        super(MTEX, self).__init__()
+        super().__init__()
         self.cnn_layers = nn.Sequential(OrderedDict([
             ('conv_1', nn.Conv2d(1, 16, (time_length//2 + 1, 1))),
             ('relu_1', nn.ReLU(inplace=True)),
@@ -22,8 +22,7 @@ class MTEX(nn.Module):
             ('fc1', nn.Linear(64 * (time_length//4), 32)),
             ('fc2', nn.Linear(32, n_classes))
         ]))
-        
-        
+
     def forward(self, x):
         x = self.cnn_layers(x)
         x = x.view(x.size(0),-1)

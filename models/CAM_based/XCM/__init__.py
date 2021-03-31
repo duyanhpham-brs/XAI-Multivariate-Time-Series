@@ -1,11 +1,11 @@
+from collections import OrderedDict
 import torch
 import torch.nn as nn
-from collections import OrderedDict
 from utils.training_helpers import View, Squeeze, SwapLastDims
 
 class XCM(nn.Module):
     def __init__(self, window_size, time_length, feature_length, n_classes):
-        super(XCM, self).__init__()
+        super().__init__()
         self.cnn_layers1_b1 = nn.Sequential(OrderedDict([
             ('conv_11', nn.Conv2d(1, 16, window_size, padding=window_size//2)),
             ('batchnorm_11', nn.BatchNorm2d(16)),
@@ -31,7 +31,7 @@ class XCM(nn.Module):
             ('batchnorm_31', nn.BatchNorm1d(32)),
             ('relu_3', nn.ReLU(inplace=True))
         ]))
-        
+
         self.avgpool_layer = nn.Sequential(OrderedDict([
             ('avgpool', nn.AvgPool1d(feature_length + 1))
         ]))
@@ -41,7 +41,7 @@ class XCM(nn.Module):
             ('fc1', nn.Linear(32, n_classes)),
             ('softmax', nn.Softmax(dim=1))
         ]))
-        
+
     def forward(self, x):
         # 2d (spatial) branch
         first_branch = self.cnn_layers1_b1(x)

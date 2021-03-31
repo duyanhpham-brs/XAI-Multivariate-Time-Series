@@ -1,16 +1,27 @@
 import torch
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 from utils.gradient_extraction import upsample
 
 class CAMFeatureMaps():
     def __init__(self, CAM_model):
         self.CAM_model = CAM_model
-    
-    def load(self, model, module, target_layer_names, smooth_factor=0, std=1.0):
-        self.cam = self.CAM_model(model=model, feature_module=module, \
+        self.cam = None
+        self.data = None
+
+    def load(self, model, module, target_layer_names, smooth_factor=None, std=None):
+        if smooth_factor is not None and std is not None:
+            self.cam = self.CAM_model(model=model, feature_module=module, \
                     target_layer_names=[target_layer_names], use_cuda=False, smooth_factor=smooth_factor, std=std)
+        elif smooth_factor is not None:
+            self.cam = self.CAM_model(model=model, feature_module=module, \
+                    target_layer_names=[target_layer_names], use_cuda=False, smooth_factor=smooth_factor)
+        elif std is not None:
+            self.cam = self.CAM_model(model=model, feature_module=module, \
+                    target_layer_names=[target_layer_names], use_cuda=False, std=std)
+        else:
+            self.cam = self.CAM_model(model=model, feature_module=module, \
+                    target_layer_names=[target_layer_names], use_cuda=False)
 
     def show(self, data, index, upsampling = True):
         self.data = data
@@ -22,7 +33,7 @@ class CAMFeatureMaps():
         if len(mask.shape)==2:
             plt.figure(figsize=(200,60))
             plt.imshow(mask.T, cmap="rainbow")
-            plt.yticks([i for i in range(mask.shape[1])])
+            plt.yticks(range(mask.shape[1]))
             plt.grid()
             plt.show(block=False)
         elif len(mask.shape)==1:

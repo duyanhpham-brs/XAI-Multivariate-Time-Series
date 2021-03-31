@@ -5,11 +5,8 @@ from feature_extraction.UnitCAM import UnitCAM
 
 # Adapt from https://github.com/haofanwang/Score-CAM/blob/master/cam/scorecam.py
 class ScoreCAM(UnitCAM):
-    def __init__(self, model, feature_module, target_layer_names, use_cuda, **kwargs):
-        super().__init__(model, feature_module, target_layer_names, use_cuda, **kwargs)
-    
     def forward_saliency_map(self, input_features, index):
-        b, c, h, w = input_features.size()
+        _, _, h, w = input_features.size()
 
         features, output, index = self.extract_features(input_features, index)
 
@@ -26,15 +23,15 @@ class ScoreCAM(UnitCAM):
 
         activations = features[-1]
         if len(activations.size()) == 4:
-            b, k, u, v = activations.size()
+            _, k, _, _ = activations.size()
             score_saliency_map = torch.zeros((1, 1, h, w))
         elif len(activations.size()) == 3:
-            b, k, u = activations.size()
+            _, k, _ = activations.size()
             score_saliency_map = torch.zeros((1, 1, h, 1))
 
         if torch.cuda.is_available():
-          activations = activations.cuda()
-          score_saliency_map = score_saliency_map.cuda()
+            activations = activations.cuda()
+            score_saliency_map = score_saliency_map.cuda()
 
         return activations, score_saliency_map, k, index
 
@@ -42,7 +39,7 @@ class ScoreCAM(UnitCAM):
         output_ = self.model(input_features * norm_saliency_map)
 
         return output_
-    
+
     def compute_score_saliency_map(self, input_features, index):
         activations, score_saliency_map, k, index = self.forward_saliency_map(input_features, index)
         with torch.no_grad():
@@ -52,12 +49,13 @@ class ScoreCAM(UnitCAM):
                     saliency_map = torch.unsqueeze(activations[:, i, :, :], 1)
                 elif len(activations.size()) == 3:
                     saliency_map = torch.unsqueeze(torch.unsqueeze(activations[:, i, :], 2),0)
-                
+
                 if saliency_map.max() == saliency_map.min():
                     continue
-                
+
                 # normalize to 0-1
-                norm_saliency_map = (saliency_map - saliency_map.min()) / (saliency_map.max() - saliency_map.min())
+                norm_saliency_map = (saliency_map - saliency_map.min()) \
+                    / (saliency_map.max() - saliency_map.min())
 
                 # how much increase if keeping the highlighted region
                 # predication on masked input
@@ -67,14 +65,16 @@ class ScoreCAM(UnitCAM):
 
                 score_saliency_map_temp =  score * saliency_map
                 score_saliency_map += score_saliency_map_temp
-                
+
         score_saliency_map = F.relu(score_saliency_map)
-        score_saliency_map_min, score_saliency_map_max = score_saliency_map.min(), score_saliency_map.max()
+        score_saliency_map_min, score_saliency_map_max = \
+            score_saliency_map.min(), score_saliency_map.max()
 
         if score_saliency_map_min == score_saliency_map_max:
             return None
 
-        score_saliency_map = (score_saliency_map - score_saliency_map_min).div(score_saliency_map_max - score_saliency_map_min).data
+        score_saliency_map = (score_saliency_map - score_saliency_map_min)\
+            .div(score_saliency_map_max - score_saliency_map_min).data
 
         return score_saliency_map
 

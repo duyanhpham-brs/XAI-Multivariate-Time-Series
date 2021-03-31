@@ -1,11 +1,8 @@
+import os
 from scipy.io import arff
 import pandas as pd
 import numpy as np
-import os
-import torch
-import copy
 from torch.utils.data import DataLoader, Dataset
-from sklearn.preprocessing import MinMaxScaler
 
 class MTSDataset(Dataset):
     def __init__(self, inp, out, time_length, feature_length):
@@ -13,10 +10,10 @@ class MTSDataset(Dataset):
         self.output = out
         self.dims = time_length
         self.channels = feature_length
-        
+
     def __len__(self):
         return len(self.input)
-    
+
     def __getitem__(self, index):
         image = (self.input[index]).reshape(1,self.dims,self.channels)
         label = self.output[index]
@@ -31,7 +28,7 @@ class DatasetLoader:
     @staticmethod
     def _load_arff(arff_path):
         return arff.loadarff(arff_path)
-    
+
     def load_to_df(self):
         train_data = pd.DataFrame(self._load_arff(self.train_path)[0])
         test_data = pd.DataFrame(self._load_arff(self.test_path)[0])
@@ -51,7 +48,7 @@ class DatasetLoader:
         train_loader = DataLoader(train_dataset, batch_size=train_batch_size, shuffle=True)
         test_dataset = MTSDataset(X_test, y_test, X_test.shape[-1], X_test.shape[-2])
         test_loader = DataLoader(test_dataset, batch_size=test_batch_size, shuffle=False)
-        
+
         dataloaders = {}
         dataloaders['train'] = train_loader
         dataloaders['val'] = test_loader
@@ -68,7 +65,7 @@ class DatasetLoader:
         train_loader = DataLoader(train_dataset, batch_size=train_batch_size, shuffle=True)
         test_dataset = MTSDataset(X_test, y_test, time_length, feature_length)
         test_loader = DataLoader(test_dataset, batch_size=test_batch_size, shuffle=False)
-        
+
         dataloaders = {}
         dataloaders['train'] = train_loader
         dataloaders['val'] = test_loader

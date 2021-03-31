@@ -66,9 +66,9 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, datasets_si
                 best_model_wts = copy.deepcopy(model.state_dict())
 
             if phase == 'train':
-              train_loss.append(epoch_loss)
+                train_loss.append(epoch_loss)
             else:
-              test_loss.append(epoch_loss)
+                test_loss.append(epoch_loss)
 
         plt.plot(np.array(train_loss))
         plt.plot(np.array(test_loss))
