@@ -1,7 +1,7 @@
 name: develop_branch_lint
 on:
-  pull_request:
-    branches: 
+  push:
+    branches:
       - develop
 
 jobs:
