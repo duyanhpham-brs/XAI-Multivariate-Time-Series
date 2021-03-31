@@ -18,8 +18,7 @@ jobs:
         python-version: 3.7
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        if [ -f environment.yml ]; then pip install -r environment.yml; fi
+        $CONDA/bin/conda env update --file environment.yml --name base
     - name: Test with pytest
       run: |
         pytest tests/unit_tests
