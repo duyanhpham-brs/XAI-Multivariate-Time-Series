@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 from torch.nn import functional as F
-from collections import OrderedDict
 from feature_extraction.CAMs.GradCAM import GradCAM
 
 # Adapt from https://github.com/adityac94/Grad_CAM_plus_plus/blob/4a9faf6ac61ef0c56e19b88d8560b81cd62c5017/misc/utils.py#L51
