@@ -16,7 +16,6 @@ scipy = "*"
 matplotlib = "*"
 sklearn = "*"
 pylint = "*"
-logging = "*"
 argparse = "*"
 pytest = "*"
 
