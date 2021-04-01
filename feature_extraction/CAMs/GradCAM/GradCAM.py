@@ -10,7 +10,9 @@ class GradCAM(UnitCAM):
         self.target = None
 
     def calculate_gradients(self, input_features, index, print_out=True):
-        features, output, index = self.extract_features(input_features, index, print_out)
+        features, output, index = self.extract_features(
+            input_features, index, print_out
+        )
 
         one_hot = np.zeros((1, output.size()[-1]), dtype=np.float32)
         one_hot[0][index] = 1
