@@ -3,6 +3,7 @@ import pytest
 import torch
 import torch.nn.functional as F
 import numpy as np
+import utils
 from utils.visualization import CAMFeatureMaps
 
 class mockCAM:
