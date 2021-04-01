@@ -1,11 +1,13 @@
+# pylint: disable=redefined-outer-name
 import pytest
 import torch
 import torch.nn.functional as F
 import numpy as np
+from context import utils
 from utils.visualization import CAMFeatureMaps
 
 class mockCAM:
-    def __init__(self, model, feature_module, target_layer_names, use_cuda, **kwargs):
+    def __init__(self, model, feature_module, target_layer_names, use_cuda):
         self.model = model
         self.feature_module = feature_module
         self.target_layer_names = target_layer_names

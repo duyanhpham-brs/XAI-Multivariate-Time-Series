@@ -1,3 +1,4 @@
+# pylint: disable=no-self-use
 import torch
 import torch.nn as nn
 
@@ -19,11 +20,8 @@ class View(nn.Module):
         return out
 
 class Squeeze(nn.Module):
-    def __init__(self):
-        super().__init__()
-
     def __repr__(self):
-        return f'Squeeze()'
+        return 'Squeeze()'
 
     def forward(self, x):
         '''
@@ -32,11 +30,8 @@ class Squeeze(nn.Module):
         return torch.squeeze(x)
 
 class SwapLastDims(nn.Module):
-    def __init__(self):
-        super().__init__()
-
     def __repr__(self):
-        return f'SwapLastDim()'
+        return 'SwapLastDim()'
 
     def forward(self, x):
         '''

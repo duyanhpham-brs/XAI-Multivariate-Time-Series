@@ -2,7 +2,7 @@ import numpy as np
 from utils.gradient_extraction import ModelOutputs
 
 class UnitCAM:
-    def __init__(self, model, feature_module, target_layer_names, use_cuda, **kwargs):
+    def __init__(self, model, feature_module, target_layer_names, use_cuda):
         self.model = model
         self.feature_module = feature_module
         self.model.eval()
@@ -21,14 +21,15 @@ class UnitCAM:
         else:
             features, output = self.extractor(input_features)
 
-        if index == None:
+        if index is None:
             index = np.argmax(output.cpu().data.numpy())
             if print_out:
                 print(f'The index has the largest maximum likelihood is {index}')
 
         return features, output, index
 
-    def cam_weighted_sum(self, cam, weights, target):
+    @staticmethod
+    def cam_weighted_sum(cam, weights, target):
         for i, w in enumerate(weights):
             if len(target.shape) == 3:
                 cam += w * target[i, :, :]

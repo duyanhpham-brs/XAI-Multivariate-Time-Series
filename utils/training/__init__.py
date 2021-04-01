@@ -4,7 +4,6 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
-
 def train_model(model, criterion, optimizer, scheduler, dataloaders, datasets_size, num_epochs=25):
     since = time.time()
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -66,9 +65,9 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, datasets_si
                 best_model_wts = copy.deepcopy(model.state_dict())
 
             if phase == 'train':
-              train_loss.append(epoch_loss)
+                train_loss.append(epoch_loss)
             else:
-              test_loss.append(epoch_loss)
+                test_loss.append(epoch_loss)
 
         plt.plot(np.array(train_loss))
         plt.plot(np.array(test_loss))
