@@ -40,7 +40,7 @@ class UnitCAM:
     @staticmethod
     def cam_weighted_sum(cam, weights, target):
         try:
-            for i, w in enumerate(weights):
+            for _, w in enumerate(weights):
                 if len(target.shape) == 3:
                     for t in range(len(target)):
                         cam += w * target[t, :, :]
