@@ -3,7 +3,23 @@ from utils.gradient_extraction import ModelOutputs
 
 
 class UnitCAM:
+    """Unit Class Activation Mapping (UnitCAM)
+
+    UnitCAM is the foundation for implementing all the CAMs
+
+    """
+
     def __init__(self, model, feature_module, target_layer_names, use_cuda):
+        """
+
+        Attributes:
+            model: The wanna-be explained deep learning model for multivariate
+                time series classification
+            feature_module: The wanna-be explained module group (e.g. linear_layers)
+            target_layer_names: The wanna-be explained module
+            use_cuda: Whether to use cuda
+
+        """
         self.model = model
         self.feature_module = feature_module
         self.model.eval()
@@ -16,9 +32,26 @@ class UnitCAM:
         )
 
     def forward(self, input_features):
+        """Forward pass
+
+        Attributes:
+            input_features: A multivariate data input to the model
+
+        """
         return self.model(input_features)
 
     def extract_features(self, input_features, index, print_out=True, zero_out=False):
+        """Extract the feature maps of the targeted layer
+
+        Attributes:
+            input_features: A multivariate data input to the model
+            index: Targeted output class
+            print_out: Whether to print the maximum likelihood class
+                (if index is set to None)
+            zero_out: Whether to set the targeted module weights to 0
+                (used in Ablation-CAM)
+
+        """
         if self.cuda:
             if zero_out:
                 features, output = self.extractor(input_features.cuda(), zero_out)
@@ -39,6 +72,15 @@ class UnitCAM:
 
     @staticmethod
     def cam_weighted_sum(cam, weights, target):
+        """Do linear combination between the defined weights and corresponding 
+        feature maps
+
+        Attributes:
+            cam: A placeholder for the final results
+            weights: The weights computed based on the network output
+            target: The targeted feature maps
+
+        """
         try:
             for _, w in enumerate(weights):
                 if len(target.shape) == 3:
@@ -71,4 +113,11 @@ class UnitCAM:
         return cam
 
     def __call__(self, input_features, index=None):
+        """Abstract methods for implementing in the sub classes
+
+        Attributes:
+            input_features: A multivariate data input to the model
+            index: Targeted output class
+
+        """
         return NotImplementedError
