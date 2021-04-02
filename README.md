@@ -19,8 +19,8 @@ feature_maps.map_activation_to_input(mask)
 
 ### Mask
 
-![Mask Image](https://github.com/duyanhpham-brs/XAI-Multivariate-Time-Series/blob/develop/static_images/XCM_relu11_CAM_UWave_test0_map.png?raw=true)
+![Mask Image](https://github.com/duyanhpham-brs/XAI-Multivariate-Time-Series/blob/develop/static_images/XCM_relu11_CAM_UWave_test0.png.png?raw=true)
 
 ### Mapping mask onto input
 
-![Mapped Image](https://github.com/duyanhpham-brs/XAI-Multivariate-Time-Series/blob/develop/static_images/XCM_relu11_CAM_UWave_test0.png?raw=true)
+![Mapped Image](https://github.com/duyanhpham-brs/XAI-Multivariate-Time-Series/blob/develop/static_images/XCM_relu11_CAM_UWave_test0_map.png?raw=true)
