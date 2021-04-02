@@ -1,4 +1,5 @@
 import torch
+import copy
 import numpy as np
 import pandas as pd
 
@@ -15,14 +16,27 @@ class FeatureExtractor:
     def save_gradient(self, grad):
         self.gradients.append(grad)
 
-    def __call__(self, x):
+    def __call__(self, x, zero_out=False):
         outputs = []
         self.gradients = []
         for name, module in self.model._modules.items():
-            x = module(x)
-            if name in self.target_layers:
-                x.register_hook(self.save_gradient)
-                outputs += [x]
+            if zero_out:
+                if name in self.target_layers:
+                    module_temp = copy.deepcopy(module)
+                    module_temp.weight = torch.nn.Parameter(
+                        torch.zeros(*module.weight.size())
+                    )
+                    x = module_temp(x)
+                    x.register_hook(self.save_gradient)
+                    outputs += [x]
+                else:
+                    x = module(x)
+                    outputs += [x]
+            else:
+                x = module(x)
+                if name in self.target_layers:
+                    x.register_hook(self.save_gradient)
+                    outputs += [x]
         return outputs, x
 
 
@@ -41,15 +55,23 @@ class ModelOutputs:
     def get_gradients(self):
         return self.feature_extractor.gradients
 
-    def __call__(self, x):
+    def __call__(self, x, zero_out=False):
         target_activations = []
         branches = {}
         for name, module in self.model._modules.items():
             if module == self.feature_module and not "_b" in name.lower():
-                target_activations, x = self.feature_extractor(x)
+                if zero_out:
+                    target_activations, x = self.feature_extractor(x, zero_out=True)
+                else:
+                    target_activations, x = self.feature_extractor(x)
             elif "_b" in name.lower():
                 if module == self.feature_module:
-                    target_activations, temp = self.feature_extractor(x)
+                    if zero_out:
+                        target_activations, temp = self.feature_extractor(
+                            x, zero_out=True
+                        )
+                    else:
+                        target_activations, temp = self.feature_extractor(x)
                     _, _, num_branch = name.split("_")
                     if not num_branch in list(branches.keys()):
                         branches[num_branch] = []

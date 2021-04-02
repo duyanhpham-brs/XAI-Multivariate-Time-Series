@@ -53,13 +53,13 @@ class CAMFeatureMaps:
         mask = np.squeeze(self.cam(X_inp, target_index))
         if len(mask.shape) == 2:
             plt.figure(figsize=(200, 60))
-            plt.imshow(mask.T, cmap="rainbow")
+            plt.imshow(mask.T, cmap="jet")
             plt.yticks(range(mask.shape[1]))
             plt.grid()
             plt.show(block=False)
         elif len(mask.shape) == 1:
             plt.figure(figsize=(200, 60))
-            plt.imshow(mask.reshape(1, -1), cmap="rainbow")
+            plt.imshow(mask.reshape(1, -1), cmap="jet")
             plt.grid()
             plt.show(block=False)
 
@@ -78,7 +78,7 @@ class CAMFeatureMaps:
                         np.arange(0, self.data.T.shape[0], 1),
                         self.data.T[:, j],
                         c=mask[:, j],
-                        cmap="rainbow",
+                        cmap="jet",
                         s=7,
                     )
             else:
@@ -87,7 +87,7 @@ class CAMFeatureMaps:
                         np.arange(0, self.data.T.shape[0], 1),
                         self.data.T[:, j],
                         c=mask[:, 0],
-                        cmap="rainbow",
+                        cmap="jet",
                         s=7,
                     )
         else:
@@ -96,7 +96,7 @@ class CAMFeatureMaps:
                     np.arange(0, self.data.T.shape[0], 1),
                     self.data.T[:, j],
                     c=mask,
-                    cmap="rainbow",
+                    cmap="jet",
                     s=7,
                 )
 

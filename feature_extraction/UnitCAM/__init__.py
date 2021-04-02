@@ -18,11 +18,17 @@ class UnitCAM:
     def forward(self, input_features):
         return self.model(input_features)
 
-    def extract_features(self, input_features, index, print_out=True):
+    def extract_features(self, input_features, index, print_out=True, zero_out=False):
         if self.cuda:
-            features, output = self.extractor(input_features.cuda())
+            if zero_out:
+                features, output = self.extractor(input_features.cuda(), zero_out)
+            else:
+                features, output = self.extractor(input_features.cuda())
         else:
-            features, output = self.extractor(input_features)
+            if zero_out:
+                features, output = self.extractor(input_features, zero_out)
+            else:
+                features, output = self.extractor(input_features)
 
         if index is None:
             index = np.argmax(output.cpu().data.numpy())
@@ -33,17 +39,33 @@ class UnitCAM:
 
     @staticmethod
     def cam_weighted_sum(cam, weights, target):
-        for i, w in enumerate(weights):
+        try:
+            for i, w in enumerate(weights):
+                if len(target.shape) == 3:
+                    for t in range(len(target)):
+                        cam += w * target[t, :, :]
+                elif len(target.shape) == 2:
+                    for t in range(len(target)):
+                        cam += w * target[t, :]
+                elif (
+                    len(target.shape) == 1
+                    or target.shape[0] == 1
+                    and len(target.shape) == 2
+                ):
+                    cam += w * target.reshape(-1)[t]
+        except TypeError:
             if len(target.shape) == 3:
-                cam += w * target[i, :, :]
+                for t in range(len(target)):
+                    cam += weights * target[t, :, :]
             elif len(target.shape) == 2:
-                cam += w * target[i, :]
+                for t in range(len(target)):
+                    cam += weights * target[t, :]
             elif (
                 len(target.shape) == 1
                 or target.shape[0] == 1
                 and len(target.shape) == 2
             ):
-                cam += w * target.reshape(-1)[i]
+                cam += weights * target.reshape(-1)[t]
 
         cam = np.maximum(cam, 0)
         return cam
