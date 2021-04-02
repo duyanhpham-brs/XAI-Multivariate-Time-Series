@@ -5,8 +5,10 @@ from feature_extraction.UnitCAM import UnitCAM
 class CAM(UnitCAM):
     def __init__(self, model, feature_module, target_layer_names, use_cuda):
         super().__init__(model, feature_module, target_layer_names, use_cuda)
-        if 'avgpool_layer' not in list(self.model._modules.keys()):
-            raise ValueError('CAM does not support model without global average pooling')
+        if "avgpool_layer" not in list(self.model._modules.keys()):
+            raise ValueError(
+                "CAM does not support model without global average pooling"
+            )
 
     def __call__(self, input_features, index=None):
         features, output, index = self.extract_features(input_features, index)

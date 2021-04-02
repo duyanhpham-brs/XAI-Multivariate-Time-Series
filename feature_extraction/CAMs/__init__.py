@@ -7,3 +7,4 @@ from feature_extraction.CAMs.ScoreCAM import ScoreCAM
 from feature_extraction.CAMs.InputSmoothScoreCAM import InputSmoothScoreCAM
 from feature_extraction.CAMs.IntegratedScoreCAM import IntegratedScoreCAM
 from feature_extraction.CAMs.ActivationSmoothScoreCAM import ActivationSmoothScoreCAM
+from feature_extraction.CAMs.AblationCAM import AblationCAM
