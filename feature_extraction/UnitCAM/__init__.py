@@ -7,19 +7,16 @@ class UnitCAM:
 
     UnitCAM is the foundation for implementing all the CAMs
 
+    Attributes:
+    -------
+        model: The wanna-be explained deep learning model for multivariate time series classification
+        feature_module: The wanna-be explained module group (e.g. linear_layers)
+        target_layer_names: The wanna-be explained module
+        use_cuda: Whether to use cuda
+
     """
 
     def __init__(self, model, feature_module, target_layer_names, use_cuda):
-        """
-
-        Attributes:
-            model: The wanna-be explained deep learning model for multivariate
-                time series classification
-            feature_module: The wanna-be explained module group (e.g. linear_layers)
-            target_layer_names: The wanna-be explained module
-            use_cuda: Whether to use cuda
-
-        """
         self.model = model
         self.feature_module = feature_module
         self.model.eval()
@@ -35,7 +32,12 @@ class UnitCAM:
         """Forward pass
 
         Attributes:
+        -------
             input_features: A multivariate data input to the model
+
+        Returns:
+        -------
+            Forward-pass result
 
         """
         return self.model(input_features)
@@ -44,12 +46,19 @@ class UnitCAM:
         """Extract the feature maps of the targeted layer
 
         Attributes:
+        -------
             input_features: A multivariate data input to the model
             index: Targeted output class
             print_out: Whether to print the maximum likelihood class
                 (if index is set to None)
             zero_out: Whether to set the targeted module weights to 0
                 (used in Ablation-CAM)
+
+        Returns:
+        -------
+            features: The feature maps of the targeted layer
+            output: The forward-pass result
+            index: The targeted class index
 
         """
         if self.cuda:
@@ -72,13 +81,18 @@ class UnitCAM:
 
     @staticmethod
     def cam_weighted_sum(cam, weights, target):
-        """Do linear combination between the defined weights and corresponding 
+        """Do linear combination between the defined weights and corresponding
         feature maps
 
         Attributes:
+        -------
             cam: A placeholder for the final results
             weights: The weights computed based on the network output
             target: The targeted feature maps
+
+        Returns:
+        -------
+            cam: The resulting weighted feature maps
 
         """
         try:
@@ -116,6 +130,7 @@ class UnitCAM:
         """Abstract methods for implementing in the sub classes
 
         Attributes:
+        -------
             input_features: A multivariate data input to the model
             index: Targeted output class
 
