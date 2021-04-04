@@ -2,8 +2,28 @@ import numpy as np
 import torch
 from feature_extraction.UnitCAM import UnitCAM
 
-# Adapt from https://github.com/jacobgil/pytorch-grad-cam/blob/bf27469f5b3accf9535e04e52106e3f77f5e9cf5/gradcam.py#L31
+
 class GradCAM(UnitCAM):
+    """The implementation of Grad-CAM for multivariate time series classification
+    CNN-based deep learning models
+
+    Based on the paper:
+
+        Selvaraju, R. R., Cogswell, M.,
+        Das, A., Vedantam, R., Parikh,
+        D., & Batra, D. (2017). Grad-cam: Visual explanations from deep networks
+        via gradient-based localization. In Proceedings of the
+        IEEE international conference on computer vision (pp. 618-626).
+
+    Implementation adapted from:
+
+        https://github.com/jacobgil/pytorch-grad-cam/blob/bf27469f5b3accf9535e04e52106e3f77f5e9cf5/gradcam.py#L31
+
+
+    This implementation is modified to only support Multivariate Time Series
+    Classification data and the corresponding CNN-based models
+
+    """
     def __init__(self, model, feature_module, target_layer_names, use_cuda):
         super().__init__(model, feature_module, target_layer_names, use_cuda)
         self.grads_val = None

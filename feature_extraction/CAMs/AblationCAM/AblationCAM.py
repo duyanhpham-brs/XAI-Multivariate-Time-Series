@@ -43,7 +43,6 @@ class AblationCAM(UnitCAM):
 
     def __call__(self, input_features, index=None):
         _, slope, target = self.calculate_slope(input_features, index)
-        print(slope)
 
         cam = np.zeros(target.shape[1:], dtype=np.float32)
         cam = self.cam_weighted_sum(cam, np.squeeze(slope.detach().numpy()), target)

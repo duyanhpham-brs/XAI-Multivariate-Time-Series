@@ -29,7 +29,14 @@ class Squeeze(nn.Module):
         """
         Squeeze unnecessary dim.
         """
-        return torch.squeeze(x)
+        batch_size = x.size(0)
+        x = torch.squeeze(x)
+        if len(x.size()) == 2:
+            x = x.view((batch_size, -1))
+        elif len(x.size()) == 1:
+            x = x.view((batch_size, 1))
+
+        return x
 
 
 class SwapLastDims(nn.Module):
