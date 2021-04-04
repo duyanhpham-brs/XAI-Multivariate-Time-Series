@@ -1,6 +1,13 @@
 import torch
 import numpy as np
+from collections import OrderedDict
+import torch.nn.functional as F
 from feature_extraction.UnitCAM import UnitCAM
+from feature_extraction.CAMs import CAM
+from utils.training import train_model
+from utils.datasets import DatasetLoader
+from utils.visualization import CAMFeatureMaps
+from utils.training_helpers import SwapLastDims
 
 
 class CAM(UnitCAM):
@@ -9,12 +16,12 @@ class CAM(UnitCAM):
 
     Attributes:
     -------
-        model: The wanna-be explained deep learning model for \\
+        model: The wanna-be explained deep learning model for
             multivariate time series classification
         feature_module: The wanna-be explained module group (e.g. linear_layers)
         target_layer_names: The wanna-be explained module
         use_cuda: Whether to use cuda
-        has_gap: True if the model has GAP layer right after \\
+        has_gap: True if the model has GAP layer right after
             the being explained CNN layer
 
     :NOTE:
@@ -49,7 +56,7 @@ class CAM(UnitCAM):
         super().__init__(model, feature_module, target_layer_names, use_cuda)
         self.has_gap = kwargs["has_gap"]
 
-    def __call__(self, input_features, index=None):
+    def __call__(self, input_features, index=None, dataset_path=None):
         """Implemented method when CAM is called on a given input and its targeted
         index
 
@@ -57,36 +64,117 @@ class CAM(UnitCAM):
         -------
             input_features: A multivariate data input to the model
             index: Targeted output class
+            dataset_path: Path of the dataset (the same one that has been used to train)
+                to retrain the new model (if it does not have GAP right after the explaining conv)
 
         Returns:
         -------
             cam: The resulting weighted feature maps
         """
+        if not self.has_gap:
+            if dataset_path is None:
+                return
+            
+            for param in self.model.parameters():
+                param.requires_grad = False
+
+            if "fc" not in list(dict(self.model._modules["linear_layers"].named_children()).keys())[-1]:
+                n_classes = self.model._modules["linear_layers"][-2].out_features
+            else:
+                n_classes = self.model._modules["linear_layers"][-1].out_features
+
+            new_cnn_layer_list = []
+            for idx, layer in enumerate(self.feature_module):
+                new_cnn_layer_list.append((list(dict(self.feature_module.named_children()).keys())[idx], layer))
+                print(list(dict(self.feature_module.named_children()).keys())[idx], self.target_layer_names[0])
+                if list(dict(self.feature_module.named_children()).keys())[idx] == self.target_layer_names[0]:
+                    out_channels = layer.out_channels
+                    break
+
+            new_cnn_layers = OrderedDict(new_cnn_layer_list)
+            class TargetedModel(torch.nn.Module):
+                def __init__(self, n_classes, out_channels):
+                    super().__init__()
+                    print(n_classes, out_channels)
+                    self.cnn_layers = torch.nn.Sequential(
+                        new_cnn_layers
+                    )
+
+                    self.linear_layers = torch.nn.Sequential(
+                        OrderedDict(
+                            [
+                                ("avg_pool", torch.nn.AdaptiveAvgPool1d(1)),
+                                ("view", SwapLastDims()),
+                                ("fc1", torch.nn.Linear(out_channels, n_classes)),
+                            ]
+                        )
+                    )
+
+                def forward(self, x):
+                    x = self.cnn_layers(x)
+                    x = self.linear_layers(x)
+                    x = torch.squeeze(x)
+
+                    return x
+            new_model = TargetedModel(n_classes, out_channels)
+            
+            dataset = DatasetLoader(dataset_path)
+            dataloaders, datasets_size = dataset.get_torch_dataset_loader_auto(4, 4)
+
+            criterion = torch.nn.CrossEntropyLoss()
+            optimizer_ft = torch.optim.Adam(new_model.parameters(), lr=1.5e-4)
+            exp_lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer_ft, step_size=10, gamma=0.1)
+
+            train_model(new_model, criterion, optimizer_ft, exp_lr_scheduler, dataloaders, datasets_size, 1)
+
+            features, output, index = self.extract_features(input_features, index)
+
+            target = features[-1]
+            target = target.cpu().data.numpy()[0, :]
+
+            try:
+                weights = new_model._modules["linear_layers"][-1].weight
+            except AttributeError:
+                weights = new_model._modules["linear_layers"][-2].weight
+
+            one_hot = np.zeros(output.size(), dtype=np.float32)
+            one_hot[0][index] = 1
+            one_hot = torch.from_numpy(one_hot).requires_grad_(True)
+
+            if self.cuda:
+                one_hot = torch.sum(one_hot.cuda() * weights.T)
+            else:
+                one_hot = torch.sum(one_hot * weights.T)
+
+            cam = np.zeros(target.shape[1:], dtype=np.float32)
+            target = np.squeeze(target)
+
+            cam = self.cam_weighted_sum(cam, one_hot.detach().numpy(), target)
+
+            return cam
+
         features, output, index = self.extract_features(input_features, index)
-
-        one_hot = np.zeros((1, output.size()[-1]), dtype=np.float32)
-        one_hot[0][index] = 1
-        one_hot = torch.from_numpy(one_hot).requires_grad_(True)
-
-        print(one_hot)
-
-        if self.cuda:
-            one_hot = one_hot.cuda() * output
-        else:
-            one_hot = one_hot * output
 
         target = features[-1]
         target = target.cpu().data.numpy()[0, :]
 
-        print(target.shape)
+        try:
+            weights = new_model._modules["linear_layers"][-1].weight
+        except AttributeError:
+            weights = new_model._modules["linear_layers"][-2].weight
 
-        weights = np.squeeze(one_hot.data.numpy())
+        one_hot = np.zeros(output.size(), dtype=np.float32)
+        one_hot[0][index] = 1
+        one_hot = torch.from_numpy(one_hot).requires_grad_(True)
 
-        print(weights)
+        if self.cuda:
+            one_hot = torch.sum(one_hot.cuda() * weights.T)
+        else:
+            one_hot = torch.sum(one_hot * weights.T)
 
         cam = np.zeros(target.shape[1:], dtype=np.float32)
         target = np.squeeze(target)
 
-        cam = self.cam_weighted_sum(cam, weights, target)
+        cam = self.cam_weighted_sum(cam, one_hot.detach().numpy(), target)
 
         return cam
