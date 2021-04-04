@@ -54,6 +54,6 @@ def test_show_function_without_upsampling(set_up):
     inputs = np.zeros((16, 16))
     feature_maps = set_up
     feature_maps.load(None, None, None, None)
-    outputs = feature_maps.show(inputs, None, False)
+    outputs = feature_maps.show(inputs, None, None, False)
 
     assert outputs.shape[0] == inputs.shape[0] - 2

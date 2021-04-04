@@ -1,3 +1,4 @@
+# pylint: disable=unused-import
 from collections import OrderedDict
 import torch
 import torch.nn as nn
@@ -6,7 +7,7 @@ from utils.training_helpers import View, Squeeze, SwapLastDims
 
 
 class MockSingularBranchModel(nn.Module):
-    def __init__(self, time_length, feature_length, n_classes):
+    def __init__(self, time_length, n_classes):
         super().__init__()
         self.cnn_layers = nn.Sequential(
             OrderedDict(
