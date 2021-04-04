@@ -86,7 +86,7 @@ class CAMFeatureMaps:
         X_inp = torch.from_numpy(self.data.reshape(1, -1, self.data.shape[0]))
         X_inp.unsqueeze_(0)
         X_inp = X_inp.float().requires_grad_(True)
-        if dataset_path == None:
+        if dataset_path is None:
             mask = np.squeeze(self.cam(X_inp, target_index))
         else:
             mask = np.squeeze(self.cam(X_inp, target_index, dataset_path))

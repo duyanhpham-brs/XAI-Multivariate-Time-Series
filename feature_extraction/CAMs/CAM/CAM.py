@@ -1,13 +1,10 @@
+from collections import OrderedDict
 import torch
 import numpy as np
-from collections import OrderedDict
-import torch.nn.functional as F
 from feature_extraction.UnitCAM import UnitCAM
-from feature_extraction.CAMs import CAM
 from utils.training import train_model
 from utils.datasets import DatasetLoader
-from utils.visualization import CAMFeatureMaps
-from utils.training_helpers import SwapLastDims
+from utils.training_helpers import SwapLastDims, Squeeze
 
 
 class CAM(UnitCAM):
@@ -27,9 +24,9 @@ class CAM(UnitCAM):
     :NOTE:
     -------
     CAM can only applied with models that have Global Average Pooling
-    layer. If no Global Average Pooling layer exists, one has to be added 
-    and the model has to be retrained over. Please state whether your model 
-    has a Global Average Pooling layer right after the being explained CNN 
+    layer. If no Global Average Pooling layer exists, one has to be added
+    and the model has to be retrained over. Please state whether your model
+    has a Global Average Pooling layer right after the being explained CNN
     layer by setting "has_gap = True" at class initiation.
 
     Based on the paper:
@@ -73,8 +70,8 @@ class CAM(UnitCAM):
         """
         if not self.has_gap:
             if dataset_path is None:
-                return
-            
+                raise AttributeError("Dataset path is not defined for retraining the new model")
+
             for param in self.model.parameters():
                 param.requires_grad = False
 
@@ -86,7 +83,6 @@ class CAM(UnitCAM):
             new_cnn_layer_list = []
             for idx, layer in enumerate(self.feature_module):
                 new_cnn_layer_list.append((list(dict(self.feature_module.named_children()).keys())[idx], layer))
-                print(list(dict(self.feature_module.named_children()).keys())[idx], self.target_layer_names[0])
                 if list(dict(self.feature_module.named_children()).keys())[idx] == self.target_layer_names[0]:
                     out_channels = layer.out_channels
                     break
@@ -95,12 +91,11 @@ class CAM(UnitCAM):
             class TargetedModel(torch.nn.Module):
                 def __init__(self, n_classes, out_channels):
                     super().__init__()
-                    print(n_classes, out_channels)
                     self.cnn_layers = torch.nn.Sequential(
                         new_cnn_layers
                     )
 
-                    self.linear_layers = torch.nn.Sequential(
+                    self.linear_layers_1d = torch.nn.Sequential(
                         OrderedDict(
                             [
                                 ("avg_pool", torch.nn.AdaptiveAvgPool1d(1)),
@@ -110,14 +105,33 @@ class CAM(UnitCAM):
                         )
                     )
 
+                    self.linear_layers_2d = torch.nn.Sequential(
+                        OrderedDict(
+                            [
+                                ("avg_pool", torch.nn.AdaptiveAvgPool2d(1)),
+                                ("squeeze", Squeeze()),
+                                ("fc1", torch.nn.Linear(out_channels, n_classes)),
+                            ]
+                        )
+                    )
+
                 def forward(self, x):
                     x = self.cnn_layers(x)
-                    x = self.linear_layers(x)
+                    if len(x.size()) == 4:
+                        x = self.linear_layers_2d(x)
+                    else:
+                        x = self.linear_layers_1d(x)
                     x = torch.squeeze(x)
 
                     return x
             new_model = TargetedModel(n_classes, out_channels)
-            
+
+            for param in new_model._modules['linear_layers_1d'].parameters():
+                param.requires_grad = True
+
+            for param in new_model._modules['linear_layers_2d'].parameters():
+                param.requires_grad = True
+
             dataset = DatasetLoader(dataset_path)
             dataloaders, datasets_size = dataset.get_torch_dataset_loader_auto(4, 4)
 
@@ -125,56 +139,43 @@ class CAM(UnitCAM):
             optimizer_ft = torch.optim.Adam(new_model.parameters(), lr=1.5e-4)
             exp_lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer_ft, step_size=10, gamma=0.1)
 
-            train_model(new_model, criterion, optimizer_ft, exp_lr_scheduler, dataloaders, datasets_size, 1)
+            train_model(new_model, criterion, optimizer_ft, exp_lr_scheduler, dataloaders, datasets_size, 10)
 
-            features, output, index = self.extract_features(input_features, index)
+            features, _, index = self.extract_features(input_features, index)
 
             target = features[-1]
             target = target.cpu().data.numpy()[0, :]
 
             try:
-                weights = new_model._modules["linear_layers"][-1].weight
+                weights = new_model._modules["linear_layers_1d"][-1].weight.detach().numpy()[index,:]
             except AttributeError:
-                weights = new_model._modules["linear_layers"][-2].weight
-
-            one_hot = np.zeros(output.size(), dtype=np.float32)
-            one_hot[0][index] = 1
-            one_hot = torch.from_numpy(one_hot).requires_grad_(True)
-
-            if self.cuda:
-                one_hot = torch.sum(one_hot.cuda() * weights.T)
-            else:
-                one_hot = torch.sum(one_hot * weights.T)
+                weights = new_model._modules["linear_layers_1d"][-2].weight.detach().numpy()[index,:]
+            except KeyError:
+                try:
+                    weights = new_model._modules["linear_layers_2d"][-1].weight.detach().numpy()[index,:]
+                except AttributeError:
+                    weights = new_model._modules["linear_layers_2d"][-2].weight.detach().numpy()[index,:]
 
             cam = np.zeros(target.shape[1:], dtype=np.float32)
             target = np.squeeze(target)
 
-            cam = self.cam_weighted_sum(cam, one_hot.detach().numpy(), target)
+            cam = self.cam_weighted_sum(cam, weights, target)
 
             return cam
 
-        features, output, index = self.extract_features(input_features, index)
+        features, _, index = self.extract_features(input_features, index)
 
         target = features[-1]
         target = target.cpu().data.numpy()[0, :]
 
         try:
-            weights = new_model._modules["linear_layers"][-1].weight
+            weights = new_model._modules["linear_layers"][-1].weight.detach().numpy()[:,index]
         except AttributeError:
-            weights = new_model._modules["linear_layers"][-2].weight
-
-        one_hot = np.zeros(output.size(), dtype=np.float32)
-        one_hot[0][index] = 1
-        one_hot = torch.from_numpy(one_hot).requires_grad_(True)
-
-        if self.cuda:
-            one_hot = torch.sum(one_hot.cuda() * weights.T)
-        else:
-            one_hot = torch.sum(one_hot * weights.T)
+            weights = new_model._modules["linear_layers"][-2].weight.detach().numpy()[:,index]
 
         cam = np.zeros(target.shape[1:], dtype=np.float32)
         target = np.squeeze(target)
 
-        cam = self.cam_weighted_sum(cam, one_hot.detach().numpy(), target)
+        cam = self.cam_weighted_sum(cam, weights, target)
 
         return cam
