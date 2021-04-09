@@ -81,7 +81,7 @@ class UnitCAM:
         return features, output, index
 
     @staticmethod
-    def cam_weighted_sum(cam, weights, target):
+    def cam_weighted_sum(cam, weights, target, ReLU=True):
         """Do linear combination between the defined weights and corresponding
         feature maps
 
@@ -120,7 +120,11 @@ class UnitCAM:
             ):
                 cam += weights * target.reshape(-1)[0]
 
-        cam = np.maximum(cam, 0)
+        if ReLU:
+            cam = np.maximum(cam, 0)
+
+        cam = cam - np.min(cam)
+        cam = cam / (np.max(cam) + 1e-9)
         return cam
 
     def __call__(self, input_features, index=None):

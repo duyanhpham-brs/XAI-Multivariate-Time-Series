@@ -61,15 +61,13 @@ class ModelOutputs:
         for name, module in self.model._modules.items():
             if module == self.feature_module and not "_b" in name.lower():
                 if zero_out:
-                    target_activations, x = self.feature_extractor(x, zero_out=True)
+                    target_activations, x = self.feature_extractor(x, zero_out)
                 else:
                     target_activations, x = self.feature_extractor(x)
             elif "_b" in name.lower():
                 if module == self.feature_module:
                     if zero_out:
-                        target_activations, temp = self.feature_extractor(
-                            x, zero_out=True
-                        )
+                        target_activations, temp = self.feature_extractor(x, zero_out)
                     else:
                         target_activations, temp = self.feature_extractor(x)
                     _, _, num_branch = name.split("_")
@@ -81,10 +79,12 @@ class ModelOutputs:
                 else:
                     _, _, num_branch = name.split("_")
                     if not num_branch in list(branches.keys()):
+                        temp = module(x)
                         branches[num_branch] = []
-                        branches[num_branch].append(module(x))
+                        branches[num_branch].append(temp)
                     else:
-                        branches[num_branch].append(module(x))
+                        temp = module(x)
+                        branches[num_branch].append(temp)
 
             elif "avgpool" in name.lower():
                 x = module(x)
@@ -92,7 +92,7 @@ class ModelOutputs:
             elif not "linear" in name.lower():
                 x = torch.cat(tuple(branches[num_branch]), 1)
                 x = module(x)
-            else:
+            elif "linear" in name.lower():
                 if len(x.size()) == 3:
                     x = x.view(x.size(0), -1)
                 elif len(x.size()) == 4:

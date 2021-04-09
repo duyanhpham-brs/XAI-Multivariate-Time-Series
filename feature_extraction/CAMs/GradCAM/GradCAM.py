@@ -24,15 +24,24 @@ class GradCAM(UnitCAM):
     Classification data and the corresponding CNN-based models
 
     """
+
     def __init__(self, model, feature_module, target_layer_names, use_cuda):
         super().__init__(model, feature_module, target_layer_names, use_cuda)
         self.grads_val = None
         self.target = None
 
     def calculate_gradients(self, input_features, index, print_out=True):
-        features, output, index = self.extract_features(
-            input_features, index, print_out
-        )
+        """Implemented method when CAM is called on a given input and its targeted
+        index
+
+        Attributes:
+        -------
+            input_features: A multivariate data input to the model
+            index: Targeted output class
+            print_out: Whether to print the class with maximum likelihood when index is None
+
+        """
+        features, output, index = self.extract_features(input_features, index)
 
         one_hot = np.zeros((1, output.size()[-1]), dtype=np.float32)
         one_hot[0][index] = 1
@@ -46,26 +55,48 @@ class GradCAM(UnitCAM):
         self.model.zero_grad()
         one_hot.backward(retain_graph=True)
 
-        grads_val = self.extractor.get_gradients()[-1].cpu().data
+        self.grads_val = self.extractor.get_gradients()[-1].cpu().data
 
-        target = features[-1]
-        target = target.cpu().data.numpy()[0, :]
-
-        return one_hot, grads_val, target
+        self.target = features[-1]
+        self.target = target.cpu().data.numpy()[0, :]
 
     def map_gradients(self):
+        """Caculate weights based on the gradients corresponding to the extracting layer
+        via global average pooling
+
+        Returns:
+        -------
+            cam: The placeholder for resulting weighted feature maps
+            weights: The weights corresponding to the extracting feature maps
+        """
         if len(self.grads_val.shape) == 4:
             weights = np.mean(self.grads_val.numpy(), axis=(2, 3))[0, :]
         elif len(self.grads_val.shape) == 3:
-            weights = np.mean(self.grads_val.numpy(), axis=(1, 2))
+            weights = np.mean(self.grads_val.numpy(), axis=2).reshape(
+                -1, self.grads_val.size(0)
+            )
+
         cam = np.zeros(self.target.shape[1:], dtype=np.float32)
 
         return cam, weights
 
     def __call__(self, input_features, index=None):
-        _, self.grads_val, self.target = self.calculate_gradients(input_features, index)
+        """Implemented method when CAM is called on a given input and its targeted
+        index
+
+        Attributes:
+        -------
+            input_features: A multivariate data input to the model
+            index: Targeted output class
+
+        Returns:
+        -------
+            cam: The resulting weighted feature maps
+        """
+        self.calculate_gradients(input_features, index)
 
         cam, weights = self.map_gradients()
+        assert weights.shape[0] == self.target.shape[0]
         cam = self.cam_weighted_sum(cam, weights, self.target)
 
         return cam

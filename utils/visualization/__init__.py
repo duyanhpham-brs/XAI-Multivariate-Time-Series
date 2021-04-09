@@ -10,7 +10,15 @@ class CAMFeatureMaps:
         self.cam = None
         self.data = None
 
-    def load(self, model, module, target_layer_names, smooth_factor=None, std=None, has_gap=None):
+    def load(
+        self,
+        model,
+        module,
+        target_layer_names,
+        smooth_factor=None,
+        std=None,
+        has_gap=None,
+    ):
         if smooth_factor is not None and std is not None and has_gap is not None:
             self.cam = self.CAM_model(
                 model=model,
@@ -19,65 +27,65 @@ class CAMFeatureMaps:
                 use_cuda=False,
                 smooth_factor=smooth_factor,
                 std=std,
-                has_gap=has_gap
-            )
-        elif smooth_factor is not None:
-            self.cam = self.CAM_model(
-                model=model,
-                feature_module=module,
-                target_layer_names=[target_layer_names],
-                use_cuda=False,
-                smooth_factor=smooth_factor
-            )
-        elif std is not None:
-            self.cam = self.CAM_model(
-                model=model,
-                feature_module=module,
-                target_layer_names=[target_layer_names],
-                use_cuda=False,
-                std=std
-            )
-        elif has_gap is not None:
-            self.cam = self.CAM_model(
-                model=model,
-                feature_module=module,
-                target_layer_names=[target_layer_names],
-                use_cuda=False,
-                has_gap=has_gap
-            )
-        elif has_gap is not None and std is not None:
-            self.cam = self.CAM_model(
-                model=model,
-                feature_module=module,
-                target_layer_names=[target_layer_names],
-                use_cuda=False,
                 has_gap=has_gap,
-                std=std
             )
-        elif has_gap is not None and smooth_factor is not None:
+        elif smooth_factor is not None and std is None and has_gap is None:
             self.cam = self.CAM_model(
                 model=model,
                 feature_module=module,
                 target_layer_names=[target_layer_names],
                 use_cuda=False,
-                has_gap=has_gap,
-                smooth_factor=smooth_factor
+                smooth_factor=smooth_factor,
             )
-        elif std is not None and smooth_factor is not None:
+        elif std is not None and smooth_factor is None and has_gap is None:
             self.cam = self.CAM_model(
                 model=model,
                 feature_module=module,
                 target_layer_names=[target_layer_names],
                 use_cuda=False,
                 std=std,
-                smooth_factor=smooth_factor
+            )
+        elif has_gap is not None and smooth_factor is None and std is None:
+            self.cam = self.CAM_model(
+                model=model,
+                feature_module=module,
+                target_layer_names=[target_layer_names],
+                use_cuda=False,
+                has_gap=has_gap,
+            )
+        elif has_gap is not None and std is not None and smooth_factor is None:
+            self.cam = self.CAM_model(
+                model=model,
+                feature_module=module,
+                target_layer_names=[target_layer_names],
+                use_cuda=False,
+                has_gap=has_gap,
+                std=std,
+            )
+        elif has_gap is not None and smooth_factor is not None and std is None:
+            self.cam = self.CAM_model(
+                model=model,
+                feature_module=module,
+                target_layer_names=[target_layer_names],
+                use_cuda=False,
+                has_gap=has_gap,
+                smooth_factor=smooth_factor,
+            )
+        elif std is not None and smooth_factor is not None and has_gap is None:
+            self.cam = self.CAM_model(
+                model=model,
+                feature_module=module,
+                target_layer_names=[target_layer_names],
+                use_cuda=False,
+                std=std,
+                smooth_factor=smooth_factor,
             )
         else:
             self.cam = self.CAM_model(
                 model=model,
                 feature_module=module,
                 target_layer_names=[target_layer_names],
-                use_cuda=False
+                use_cuda=False,
             )
 
     def show(self, data, index, dataset_path=None, upsampling=True):

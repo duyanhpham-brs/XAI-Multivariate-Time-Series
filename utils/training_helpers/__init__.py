@@ -30,12 +30,15 @@ class Squeeze(nn.Module):
         Squeeze unnecessary dim.
         """
         batch_size = x.size(0)
+        pre_x_size = x.size()
         x = torch.squeeze(x)
         if len(x.size()) == 2:
-            x = x.view((batch_size, -1))
+            if len(pre_x_size) == 3:
+                x = x.view((batch_size, -1))
+            elif len(pre_x_size) == 4:
+                x = x.view((batch_size, x.size(0), x.size(1)))
         elif len(x.size()) == 1:
             x = x.view((batch_size, 1))
-
         return x
 
 
@@ -54,5 +57,4 @@ class SwapLastDims(nn.Module):
 
         shape = (batch_size, x.size(-1), x.size(-2))
         out = x.view(shape)
-
         return out
