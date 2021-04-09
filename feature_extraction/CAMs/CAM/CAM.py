@@ -70,30 +70,44 @@ class CAM(UnitCAM):
         """
         if not self.has_gap:
             if dataset_path is None:
-                raise AttributeError("Dataset path is not defined for retraining the new model")
+                raise AttributeError(
+                    "Dataset path is not defined for retraining the new model"
+                )
 
             for param in self.model.parameters():
                 param.requires_grad = False
 
-            if "fc" not in list(dict(self.model._modules["linear_layers"].named_children()).keys())[-1]:
+            if (
+                "fc"
+                not in list(
+                    dict(self.model._modules["linear_layers"].named_children()).keys()
+                )[-1]
+            ):
                 n_classes = self.model._modules["linear_layers"][-2].out_features
             else:
                 n_classes = self.model._modules["linear_layers"][-1].out_features
 
             new_cnn_layer_list = []
             for idx, layer in enumerate(self.feature_module):
-                new_cnn_layer_list.append((list(dict(self.feature_module.named_children()).keys())[idx], layer))
-                if list(dict(self.feature_module.named_children()).keys())[idx] == self.target_layer_names[0]:
+                new_cnn_layer_list.append(
+                    (
+                        list(dict(self.feature_module.named_children()).keys())[idx],
+                        layer,
+                    )
+                )
+                if (
+                    list(dict(self.feature_module.named_children()).keys())[idx]
+                    == self.target_layer_names[0]
+                ):
                     out_channels = layer.out_channels
                     break
 
             new_cnn_layers = OrderedDict(new_cnn_layer_list)
+
             class TargetedModel(torch.nn.Module):
                 def __init__(self, n_classes, out_channels):
                     super().__init__()
-                    self.cnn_layers = torch.nn.Sequential(
-                        new_cnn_layers
-                    )
+                    self.cnn_layers = torch.nn.Sequential(new_cnn_layers)
 
                     self.linear_layers_1d = torch.nn.Sequential(
                         OrderedDict(
@@ -124,12 +138,13 @@ class CAM(UnitCAM):
                     x = torch.squeeze(x)
 
                     return x
+
             new_model = TargetedModel(n_classes, out_channels)
 
-            for param in new_model._modules['linear_layers_1d'].parameters():
+            for param in new_model._modules["linear_layers_1d"].parameters():
                 param.requires_grad = True
 
-            for param in new_model._modules['linear_layers_2d'].parameters():
+            for param in new_model._modules["linear_layers_2d"].parameters():
                 param.requires_grad = True
 
             dataset = DatasetLoader(dataset_path)
@@ -137,9 +152,19 @@ class CAM(UnitCAM):
 
             criterion = torch.nn.CrossEntropyLoss()
             optimizer_ft = torch.optim.Adam(new_model.parameters(), lr=1.5e-4)
-            exp_lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer_ft, step_size=10, gamma=0.1)
+            exp_lr_scheduler = torch.optim.lr_scheduler.StepLR(
+                optimizer_ft, step_size=10, gamma=0.1
+            )
 
-            train_model(new_model, criterion, optimizer_ft, exp_lr_scheduler, dataloaders, datasets_size, 10)
+            train_model(
+                new_model,
+                criterion,
+                optimizer_ft,
+                exp_lr_scheduler,
+                dataloaders,
+                datasets_size,
+                10,
+            )
 
             features, _, index = self.extract_features(input_features, index)
 
@@ -147,19 +172,36 @@ class CAM(UnitCAM):
             target = target.cpu().data.numpy()[0, :]
 
             try:
-                weights = new_model._modules["linear_layers_1d"][-1].weight.detach().numpy()[index,:]
+                weights = (
+                    new_model._modules["linear_layers_1d"][-1]
+                    .weight.detach()
+                    .numpy()[index, :]
+                )
             except AttributeError:
-                weights = new_model._modules["linear_layers_1d"][-2].weight.detach().numpy()[index,:]
+                weights = (
+                    new_model._modules["linear_layers_1d"][-2]
+                    .weight.detach()
+                    .numpy()[index, :]
+                )
             except KeyError:
                 try:
-                    weights = new_model._modules["linear_layers_2d"][-1].weight.detach().numpy()[index,:]
+                    weights = (
+                        new_model._modules["linear_layers_2d"][-1]
+                        .weight.detach()
+                        .numpy()[index, :]
+                    )
                 except AttributeError:
-                    weights = new_model._modules["linear_layers_2d"][-2].weight.detach().numpy()[index,:]
+                    weights = (
+                        new_model._modules["linear_layers_2d"][-2]
+                        .weight.detach()
+                        .numpy()[index, :]
+                    )
 
             cam = np.zeros(target.shape[1:], dtype=np.float32)
             target = np.squeeze(target)
 
-            cam = self.cam_weighted_sum(cam, weights, target)
+            assert weights.shape[0] == self.target.shape[0]
+            cam = self.cam_weighted_sum(cam, weights, target, ReLU=False)
 
             return cam
 
@@ -169,13 +211,22 @@ class CAM(UnitCAM):
         target = target.cpu().data.numpy()[0, :]
 
         try:
-            weights = new_model._modules["linear_layers"][-1].weight.detach().numpy()[:,index]
+            weights = (
+                new_model._modules["linear_layers"][-1]
+                .weight.detach()
+                .numpy()[:, index]
+            )
         except AttributeError:
-            weights = new_model._modules["linear_layers"][-2].weight.detach().numpy()[:,index]
+            weights = (
+                new_model._modules["linear_layers"][-2]
+                .weight.detach()
+                .numpy()[:, index]
+            )
 
         cam = np.zeros(target.shape[1:], dtype=np.float32)
         target = np.squeeze(target)
 
-        cam = self.cam_weighted_sum(cam, weights, target)
+        assert weights.shape[0] == self.target.shape[0]
+        cam = self.cam_weighted_sum(cam, weights, target, ReLU=False)
 
         return cam
