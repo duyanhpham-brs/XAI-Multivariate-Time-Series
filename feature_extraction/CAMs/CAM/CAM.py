@@ -226,7 +226,9 @@ class CAM(UnitCAM):
         cam = np.zeros(target.shape[1:], dtype=np.float32)
         target = np.squeeze(target)
 
-        assert weights.shape[0] == self.target.shape[0]
+        assert (
+            weights.shape[0] == self.target.shape[0]
+        ), "Weights and targets layer shapes are not compatible."
         cam = self.cam_weighted_sum(cam, weights, target, ReLU=False)
 
         return cam
