@@ -31,7 +31,6 @@ class FeatureExtractor:
                     outputs += [x]
                 else:
                     x = module(x)
-                    outputs += [x]
             else:
                 x = module(x)
                 if name in self.target_layers:
@@ -64,7 +63,7 @@ class ModelOutputs:
                     target_activations, x = self.feature_extractor(x, zero_out)
                 else:
                     target_activations, x = self.feature_extractor(x)
-            elif "_b" in name.lower():
+            elif name.lower().find("_b") != -1:
                 if module == self.feature_module:
                     if zero_out:
                         target_activations, temp = self.feature_extractor(x, zero_out)
@@ -86,13 +85,13 @@ class ModelOutputs:
                         temp = module(x)
                         branches[num_branch].append(temp)
 
-            elif "avgpool" in name.lower():
+            elif name.lower().find("avgpool") != -1:
                 x = module(x)
                 x = x.view(x.size(0), -1)
-            elif not "linear" in name.lower():
+            elif name.lower().find("linear") == -1:
                 x = torch.cat(tuple(branches[num_branch]), 1)
                 x = module(x)
-            elif "linear" in name.lower():
+            elif name.lower().find("linear") != -1:
                 if len(x.size()) == 3:
                     x = x.view(x.size(0), -1)
                 elif len(x.size()) == 4:

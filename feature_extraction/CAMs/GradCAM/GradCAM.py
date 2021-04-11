@@ -42,6 +42,8 @@ class GradCAM(UnitCAM):
 
         """
         features, output, index = self.extract_features(input_features, index)
+        self.feature_module.zero_grad()
+        self.model.zero_grad()
 
         one_hot = np.zeros((1, output.size()[-1]), dtype=np.float32)
         one_hot[0][index] = 1
@@ -51,14 +53,12 @@ class GradCAM(UnitCAM):
         else:
             one_hot = torch.sum(one_hot * output)
 
-        self.feature_module.zero_grad()
-        self.model.zero_grad()
         one_hot.backward(retain_graph=True)
 
         self.grads_val = self.extractor.get_gradients()[-1].cpu().data
 
         self.target = features[-1]
-        self.target = target.cpu().data.numpy()[0, :]
+        self.target = self.target.cpu().data.numpy()[0, :]
 
     def map_gradients(self):
         """Caculate weights based on the gradients corresponding to the extracting layer
@@ -96,7 +96,9 @@ class GradCAM(UnitCAM):
         self.calculate_gradients(input_features, index)
 
         cam, weights = self.map_gradients()
-        assert weights.shape[0] == self.target.shape[0]
+        assert (
+            weights.shape[0] == self.target.shape[0]
+        ), "Weights and targets layer shapes are not compatible."
         cam = self.cam_weighted_sum(cam, weights, self.target)
 
         return cam
