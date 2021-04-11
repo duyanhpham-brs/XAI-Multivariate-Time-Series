@@ -30,7 +30,7 @@ class GradCAM(UnitCAM):
         self.grads_val = None
         self.target = None
 
-    def calculate_gradients(self, input_features, index, print_out=True):
+    def calculate_gradients(self, input_features, index):
         """Implemented method when CAM is called on a given input and its targeted
         index
 
