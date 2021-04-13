@@ -3,49 +3,66 @@ import torch
 from torch.nn import functional as F
 from feature_extraction.CAMs.GradCAMPlusPlus import GradCAMPlusPlus
 
-# Adapt from https://github.com/frgfm/torch-cam/blob/master/torchcam/cams/gradcam.py#L164
+
 class SmoothGradCAMPlusPlus(GradCAMPlusPlus):
+    """The implementation of Smooth Grad-CAM++ for multivariate time series classification
+    CNN-based deep learning models
+
+    Based on the paper:
+
+        Omeiza, D., Speakman, S., Cintas, C., & Weldermariam, K. (2019).
+        Smooth grad-cam++: An enhanced inference level visualization technique for
+        deep convolutional neural network models. arXiv preprint arXiv:1908.01224.
+
+    Implementation adapted from:
+
+        https://github.com/frgfm/torch-cam/blob/master/torchcam/cams/gradcam.py#L164
+
+    This implementation is modified to only support Multivariate Time Series
+    Classification data and the corresponding CNN-based models
+
+    """
+
     def __init__(self, model, feature_module, target_layer_names, use_cuda, **kwargs):
         super().__init__(model, feature_module, target_layer_names, use_cuda)
         self.smooth_factor = kwargs["smooth_factor"]
         self.std = kwargs["std"]
         self._distrib = torch.distributions.normal.Normal(0, self.std)
 
-    @staticmethod
-    def extract_higher_level_gradient(global_sum, second_derivative, third_derivative):
-        alpha_num = second_derivative.numpy()
-        alpha_denom = (
-            second_derivative.numpy() * 2.0 + third_derivative.numpy() * global_sum
-        )
-        alpha_denom = np.where(
-            alpha_denom != 0.0, alpha_denom, np.ones(alpha_denom.shape)
-        )
-        alphas = alpha_num / alpha_denom
-
-        return alphas
-
     def __call__(self, input_features, index=None):
+        """Implemented method when CAM is called on a given input and its targeted
+        index
+
+        Attributes:
+        -------
+            input_features: A multivariate data input to the model
+            index: Targeted output class
+
+        Returns:
+        -------
+            cam: The resulting weighted feature maps
+        """
         grads_vals = None
         second_derivatives = None
         third_derivatives = None
         for _ in range(self.smooth_factor):
-            one_hot, grads_val, target = self.calculate_gradients(
-                input_features + self._distrib.sample(input_features.size()),
-                index,
-                False,
+            self.calculate_gradients(
+                input_features + self._distrib.sample(input_features.size()), index
             )
-            second_derivative = self.compute_second_derivative(one_hot, target)
-            third_derivative = self.compute_third_derivative(one_hot, target)
+            second_derivative = self.compute_second_derivative(
+                self.one_hot, self.target
+            )
+            third_derivative = self.compute_third_derivative(self.one_hot, self.target)
             if (
                 grads_vals is None
                 or second_derivatives is None
                 or third_derivatives is None
             ):
-                grads_vals = grads_val
+                grads_vals = self.grads_val
                 second_derivatives = second_derivative
                 third_derivatives = third_derivative
             else:
-                grads_vals += grads_val
+                grads_vals += self.grads_val
                 second_derivatives += second_derivative
                 third_derivatives += third_derivative
 
@@ -75,10 +92,10 @@ class SmoothGradCAMPlusPlus(GradCAMPlusPlus):
                 .data
             )
 
-        one_hot, _, self.target = self.calculate_gradients(input_features, index)
-        global_sum = self.compute_global_sum(one_hot)
+        self.calculate_gradients(input_features, index)
+        global_sum = self.compute_global_sum(self.one_hot)
 
-        self.alphas = self.extract_higher_level_gradient(
+        self.extract_higher_level_gradient(
             global_sum,
             second_derivatives.div_(self.smooth_factor),
             third_derivatives.div_(self.smooth_factor),
@@ -86,6 +103,9 @@ class SmoothGradCAMPlusPlus(GradCAMPlusPlus):
         self.grads_val = grads_vals.div(self.smooth_factor)
 
         cam, weights = self.map_gradients()
+        assert (
+            weights.shape[0] == self.target.shape[0]
+        ), "Weights and targets layer shapes are not compatible."
         cam = self.cam_weighted_sum(cam, weights, self.target)
 
         return cam
