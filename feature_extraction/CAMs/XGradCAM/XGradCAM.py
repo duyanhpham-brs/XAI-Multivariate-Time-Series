@@ -41,7 +41,7 @@ class XGradCAM(GradCAM):
 
         return cam, weights
 
-    def __call__(self, input_features, index=None):
+    def __call__(self, input_features, print_out, index=None):
         """Implemented method when CAM is called on a given input and its targeted
         index
 
@@ -54,7 +54,7 @@ class XGradCAM(GradCAM):
         -------
             cam: The resulting weighted feature maps
         """
-        self.calculate_gradients(input_features, index)
+        self.calculate_gradients(input_features, print_out, index)
 
         cam, weights = self.map_gradients()
         assert (

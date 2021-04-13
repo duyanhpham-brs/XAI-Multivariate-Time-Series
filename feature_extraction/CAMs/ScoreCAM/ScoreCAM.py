@@ -3,12 +3,33 @@ import torch
 from torch.nn import functional as F
 from feature_extraction.UnitCAM import UnitCAM
 
-# Adapt from https://github.com/haofanwang/Score-CAM/blob/master/cam/scorecam.py
+
 class ScoreCAM(UnitCAM):
-    def forward_saliency_map(self, input_features, index):
+    """The implementation of Score-CAM for multivariate time series classification
+    CNN-based deep learning models
+
+    Based on the paper:
+
+        Wang, H., Wang, Z., Du, M., Yang, F., Zhang, Z., Ding, S., ... & Hu, X. (2020).
+        Score-CAM: Score-weighted visual explanations for convolutional neural networks.
+        In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern
+        Recognition Workshops (pp. 24-25).
+
+    Implementation adapted from:
+
+        https://github.com/haofanwang/Score-CAM/blob/master/cam/scorecam.py
+
+    This implementation is modified to only support Multivariate Time Series
+    Classification data and the corresponding CNN-based models
+
+    """
+
+    def forward_saliency_map(self, input_features, index, print_out=True):
         _, _, h, w = input_features.size()
 
-        features, output, index = self.extract_features(input_features, index)
+        features, output, index = self.extract_features(
+            input_features, index, print_out
+        )
 
         one_hot = np.zeros((1, output.size()[-1]), dtype=np.float32)
         one_hot[0][index] = 1

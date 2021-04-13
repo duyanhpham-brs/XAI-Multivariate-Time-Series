@@ -88,16 +88,16 @@ class CAMFeatureMaps:
                 use_cuda=False,
             )
 
-    def show(self, data, index, dataset_path=None, upsampling=True):
+    def show(self, data, print_out, index, dataset_path=None, upsampling=True):
         self.data = data
         target_index = index
         X_inp = torch.from_numpy(self.data.reshape(1, -1, self.data.shape[0]))
         X_inp.unsqueeze_(0)
         X_inp = X_inp.float().requires_grad_(True)
         if dataset_path is None:
-            mask = np.squeeze(self.cam(X_inp, target_index))
+            mask = np.squeeze(self.cam(X_inp, print_out, target_index))
         else:
-            mask = np.squeeze(self.cam(X_inp, target_index, dataset_path))
+            mask = np.squeeze(self.cam(X_inp, print_out, target_index, dataset_path))
         if len(mask.shape) == 2:
             plt.figure(figsize=(200, 60))
             plt.imshow(mask.T, cmap="jet")

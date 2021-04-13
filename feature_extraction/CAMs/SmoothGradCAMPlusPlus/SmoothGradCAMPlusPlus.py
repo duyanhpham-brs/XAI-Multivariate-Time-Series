@@ -29,19 +29,24 @@ class SmoothGradCAMPlusPlus(GradCAMPlusPlus):
         self.std = kwargs["std"]
         self._distrib = torch.distributions.normal.Normal(0, self.std)
 
-    def __call__(self, input_features, index=None):
+    def __call__(self, input_features, print_out, index=None):
         """Implemented method when CAM is called on a given input and its targeted
         index
 
         Attributes:
         -------
             input_features: A multivariate data input to the model
+            print_out: Whether to print the class with maximum likelihood when index is None
             index: Targeted output class
 
         Returns:
         -------
             cam: The resulting weighted feature maps
         """
+
+        if index is not None and print_out == True:
+            print_out = False
+
         grads_vals = None
         second_derivatives = None
         third_derivatives = None
@@ -92,7 +97,7 @@ class SmoothGradCAMPlusPlus(GradCAMPlusPlus):
                 .data
             )
 
-        self.calculate_gradients(input_features, index)
+        self.calculate_gradients(input_features, print_out, index)
         global_sum = self.compute_global_sum(self.one_hot)
 
         self.extract_higher_level_gradient(
