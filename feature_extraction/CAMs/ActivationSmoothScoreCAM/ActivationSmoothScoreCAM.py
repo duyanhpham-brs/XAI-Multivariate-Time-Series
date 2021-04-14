@@ -3,8 +3,25 @@ from torch.nn import functional as F
 import numpy as np
 from feature_extraction.CAMs.ScoreCAM.ScoreCAM import ScoreCAM
 
-# Adapt from https://github.com/frgfm/torch-cam/blob/master/torchcam/cams/cam.py#L179
+
 class ActivationSmoothScoreCAM(ScoreCAM):
+    """The implementation of Score-CAM for multivariate time series classification
+    CNN-based deep learning models
+
+    Based on the paper:
+
+        Naidu, R., & Michael, J. (2020). SS-CAM: Smoothed Score-CAM for
+        sharper visual feature localization. arXiv preprint arXiv:2006.14255.
+
+    Implementation adapted from:
+
+        https://github.com/frgfm/torch-cam/blob/master/torchcam/cams/cam.py#L179
+
+    This implementation is modified to only support Multivariate Time Series
+    Classification data and the corresponding CNN-based models
+
+    """
+
     def __init__(self, model, feature_module, target_layer_names, use_cuda, **kwargs):
         super().__init__(model, feature_module, target_layer_names, use_cuda)
         self.smooth_factor = kwargs["smooth_factor"]
