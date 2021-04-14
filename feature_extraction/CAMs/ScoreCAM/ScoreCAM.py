@@ -39,7 +39,11 @@ class ScoreCAM(UnitCAM):
 
         Returns:
         -------
-            cam: The resulting weighted feature maps
+            activation: The feature maps
+            score_saliency_map: The placeholder for the resulting saliency map
+            k: The number of channels in the feature maps
+            index: The targeted index
+            output: The network forward pass output
         """
         _, _, h, w = input_features.size()
 
@@ -76,12 +80,12 @@ class ScoreCAM(UnitCAM):
         Returns:
         -------
             cam: The resulting weighted feature maps
+            scores: Corresponding scores to the feature maps
         """
         activations, score_saliency_map, k, index, output = self.forward_saliency_map(
             input_features, print_out, index
         )
         self.target = activations[-1]
-        print(self.target.size())
 
         with torch.no_grad():
             score_saliency_maps = []
@@ -93,15 +97,12 @@ class ScoreCAM(UnitCAM):
                     saliency_map = torch.unsqueeze(
                         torch.unsqueeze(self.target[i : i + 1, :], 2), 0
                     )
-
                 if saliency_map.max() == saliency_map.min():
                     continue
-
                 # normalize to 0-1
                 norm_saliency_map = (saliency_map - saliency_map.min()) / (
                     saliency_map.max() - saliency_map.min()
                 )
-
                 assert input_features.shape[:-1] == norm_saliency_map.size()[:-1]
                 score_saliency_maps.append(input_features * norm_saliency_map)
 
@@ -113,7 +114,6 @@ class ScoreCAM(UnitCAM):
             output_ = self.model(masked_input_features)
 
             scores = output_[:, index] - output[0, index]
-
             cam = np.zeros(self.target.shape[1:], dtype=np.float32)
 
         return cam, scores

@@ -1,5 +1,6 @@
 import torch
 from torch.nn import functional as F
+import numpy as np
 from feature_extraction.CAMs.ScoreCAM.ScoreCAM import ScoreCAM
 
 # Adapt from https://github.com/frgfm/torch-cam/blob/master/torchcam/cams/cam.py#L179
@@ -10,27 +11,36 @@ class ActivationSmoothScoreCAM(ScoreCAM):
         self.std = kwargs["std"]
         self._distrib = torch.distributions.normal.Normal(0, self.std)
 
-    def reforward_saliency_map(self, input_features, norm_saliency_map):
-        output_ = self.model(
-            input_features
-            * (norm_saliency_map + self._distrib.sample(input_features.size()))
-        )
+    def compute_score_saliency_map(self, input_features, print_out, index):
+        """Compute the score saliency map
 
-        return output_
+        Attributes:
+        -------
+            input_features: A multivariate data input to the model
+            print_out: Whether to print the class with maximum likelihood when index is None
+            index: Targeted output class
 
-    def compute_score_saliency_map(self, input_features, print_out, index=None):
-        activations, score_saliency_map, k, index = self.forward_saliency_map(
+        Returns:
+        -------
+            cam: The resulting weighted feature maps
+            scores: Corresponding scores to the feature maps
+        """
+        activations, score_saliency_map, k, index, output = self.forward_saliency_map(
             input_features, print_out, index
         )
+        self.target = activations[-1]
+
         with torch.no_grad():
+            scores = 0
             for _ in range(self.smooth_factor):
+                score_saliency_maps = []
                 for i in range(k):
                     # upsampling
-                    if len(activations.size()) == 4:
-                        saliency_map = torch.unsqueeze(activations[:, i, :, :], 1)
-                    elif len(activations.size()) == 3:
+                    if len(self.target.size()) == 3:
+                        saliency_map = torch.unsqueeze(self.target[i : i + 1, :, :], 0)
+                    elif len(self.target.size()) == 2:
                         saliency_map = torch.unsqueeze(
-                            torch.unsqueeze(activations[:, i, :], 2), 0
+                            torch.unsqueeze(self.target[i : i + 1, :], 2), 0
                         )
 
                     if saliency_map.max() == saliency_map.min():
@@ -41,31 +51,25 @@ class ActivationSmoothScoreCAM(ScoreCAM):
                         saliency_map.max() - saliency_map.min()
                     )
 
-                    # how much increase if keeping the highlighted region
-                    # predication on masked input
-                    output_ = self.reforward_saliency_map(
-                        input_features, norm_saliency_map
+                    assert input_features.shape[:-1] == norm_saliency_map.size()[:-1]
+                    score_saliency_maps.append(
+                        input_features
+                        * (
+                            norm_saliency_map
+                            + self._distrib.sample(input_features.size())
+                        )
                     )
-                    output_ = F.softmax(output_, dim=1)
-                    score = output_[0][index]
 
-                    score_saliency_map_temp = score * saliency_map
-                    score_saliency_map += score_saliency_map_temp
-
-                score_saliency_map = F.relu(score_saliency_map)
-                score_saliency_map_min, score_saliency_map_max = (
-                    score_saliency_map.min(),
-                    score_saliency_map.max(),
+                # how much increase if keeping the highlighted region
+                # predication on masked input
+                masked_input_features = torch.squeeze(
+                    torch.stack(score_saliency_maps, dim=1), 0
                 )
+                output_ = self.model(masked_input_features)
 
-                if score_saliency_map_min == score_saliency_map_max:
-                    return None
+                scores += output_[:, index] - output[0, index]
 
-                score_saliency_map = (
-                    (score_saliency_map - score_saliency_map_min)
-                    .div(score_saliency_map_max - score_saliency_map_min)
-                    .data
-                )
-        score_saliency_map.div_(self.smooth_factor)
+            scores.div_(self.smooth_factor)
+            cam = np.zeros(self.target.shape[1:], dtype=np.float32)
 
-        return score_saliency_map
+        return cam, scores
