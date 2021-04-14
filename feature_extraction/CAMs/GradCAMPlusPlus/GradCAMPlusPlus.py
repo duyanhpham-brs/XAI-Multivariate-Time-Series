@@ -108,18 +108,20 @@ class GradCAMPlusPlus(GradCAM):
         )
         self.alphas = alpha_num / alpha_denom
 
-    def calculate_gradients(self, input_features, index):
+    def calculate_gradients(self, input_features, print_out, index):
         """Implemented method when CAM is called on a given input and its targeted
         index
 
         Attributes:
         -------
             input_features: A multivariate data input to the model
-            index: Targeted output class
             print_out: Whether to print the class with maximum likelihood when index is None
+            index: Targeted output class
 
         """
-        features, output, index = self.extract_features(input_features, index)
+        features, output, index = self.extract_features(
+            input_features, print_out, index
+        )
         self.feature_module.zero_grad()
         self.model.zero_grad()
 
@@ -159,20 +161,24 @@ class GradCAMPlusPlus(GradCAM):
 
         return cam, weights
 
-    def __call__(self, input_features, index=None):
+    def __call__(self, input_features, print_out, index=None):
         """Implemented method when CAM is called on a given input and its targeted
         index
 
         Attributes:
         -------
             input_features: A multivariate data input to the model
+            print_out: Whether to print the class with maximum likelihood when index is None
             index: Targeted output class
 
         Returns:
         -------
             cam: The resulting weighted feature maps
         """
-        self.calculate_gradients(input_features, index)
+        if index is not None and print_out == True:
+            print_out = False
+
+        self.calculate_gradients(input_features, print_out, index)
         second_derivative = self.compute_second_derivative(self.one_hot, self.target)
         third_derivative = self.compute_third_derivative(self.one_hot, self.target)
         global_sum = self.compute_global_sum(self.one_hot)

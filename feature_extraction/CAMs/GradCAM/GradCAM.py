@@ -30,18 +30,20 @@ class GradCAM(UnitCAM):
         self.grads_val = None
         self.target = None
 
-    def calculate_gradients(self, input_features, index):
+    def calculate_gradients(self, input_features, print_out, index):
         """Implemented method when CAM is called on a given input and its targeted
         index
 
         Attributes:
         -------
             input_features: A multivariate data input to the model
-            index: Targeted output class
             print_out: Whether to print the class with maximum likelihood when index is None
+            index: Targeted output class
 
         """
-        features, output, index = self.extract_features(input_features, index)
+        features, output, index = self.extract_features(
+            input_features, print_out, index
+        )
         self.feature_module.zero_grad()
         self.model.zero_grad()
 
@@ -80,20 +82,24 @@ class GradCAM(UnitCAM):
 
         return cam, weights
 
-    def __call__(self, input_features, index=None):
+    def __call__(self, input_features, print_out, index=None):
         """Implemented method when CAM is called on a given input and its targeted
         index
 
         Attributes:
         -------
             input_features: A multivariate data input to the model
+            print_out: Whether to print the class with maximum likelihood when index is None
             index: Targeted output class
 
         Returns:
         -------
             cam: The resulting weighted feature maps
         """
-        self.calculate_gradients(input_features, index)
+        if index is not None and print_out == True:
+            print_out = False
+
+        self.calculate_gradients(input_features, print_out, index)
 
         cam, weights = self.map_gradients()
         assert (

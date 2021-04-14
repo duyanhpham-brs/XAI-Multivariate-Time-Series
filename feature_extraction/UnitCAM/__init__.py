@@ -43,7 +43,7 @@ class UnitCAM:
         """
         return self.model(input_features)
 
-    def extract_features(self, input_features, index, print_out=True, zero_out=False):
+    def extract_features(self, input_features, print_out, index, zero_out=False):
         """Extract the feature maps of the targeted layer
 
         Attributes:
@@ -110,9 +110,9 @@ class UnitCAM:
                     cam += w * target.reshape(-1)[i]
         except TypeError:
             if len(target.shape) == 3:
-                cam += weights * target[0, :, :]
+                cam += weights * target[0:1, :, :]
             elif len(target.shape) == 2:
-                cam += weights * target[0, :]
+                cam += weights * target[0:1, :]
             elif (
                 len(target.shape) == 1
                 or target.shape[0] == 1

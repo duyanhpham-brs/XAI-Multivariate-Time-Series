@@ -53,13 +53,14 @@ class CAM(UnitCAM):
         super().__init__(model, feature_module, target_layer_names, use_cuda)
         self.has_gap = kwargs["has_gap"]
 
-    def __call__(self, input_features, index=None, dataset_path=None):
+    def __call__(self, input_features, print_out, index=None, dataset_path=None):
         """Implemented method when CAM is called on a given input and its targeted
         index
 
         Attributes:
         -------
             input_features: A multivariate data input to the model
+            print_out: Whether to print the class with maximum likelihood when index is None
             index: Targeted output class
             dataset_path: Path of the dataset (the same one that has been used to train)
                 to retrain the new model (if it does not have GAP right after the explaining conv)
@@ -68,6 +69,9 @@ class CAM(UnitCAM):
         -------
             cam: The resulting weighted feature maps
         """
+        if index is not None and print_out == True:
+            print_out = False
+
         if not self.has_gap:
             if dataset_path is None:
                 raise AttributeError(
@@ -166,18 +170,32 @@ class CAM(UnitCAM):
                 10,
             )
 
-            features, _, index = self.extract_features(input_features, index)
+            print(index)
+            features, _, index = self.extract_features(input_features, print_out, index)
+            print(index)
 
             target = features[-1]
             target = target.cpu().data.numpy()[0, :]
 
             try:
+                print(
+                    new_model._modules["linear_layers_1d"][-1]
+                    .weight.detach()
+                    .numpy()
+                    .shape
+                )
                 weights = (
                     new_model._modules["linear_layers_1d"][-1]
                     .weight.detach()
                     .numpy()[index, :]
                 )
             except AttributeError:
+                print(
+                    new_model._modules["linear_layers_1d"][-2]
+                    .weight.detach()
+                    .numpy()
+                    .shape
+                )
                 weights = (
                     new_model._modules["linear_layers_1d"][-2]
                     .weight.detach()
@@ -185,12 +203,24 @@ class CAM(UnitCAM):
                 )
             except KeyError:
                 try:
+                    print(
+                        new_model._modules["linear_layers_2d"][-1]
+                        .weight.detach()
+                        .numpy()
+                        .shape
+                    )
                     weights = (
                         new_model._modules["linear_layers_2d"][-1]
                         .weight.detach()
                         .numpy()[index, :]
                     )
                 except AttributeError:
+                    print(
+                        new_model._modules["linear_layers_2d"][-2]
+                        .weight.detach()
+                        .numpy()
+                        .shape
+                    )
                     weights = (
                         new_model._modules["linear_layers_2d"][-2]
                         .weight.detach()
@@ -199,13 +229,16 @@ class CAM(UnitCAM):
 
             cam = np.zeros(target.shape[1:], dtype=np.float32)
             target = np.squeeze(target)
+            weights = np.squeeze(weights).T
 
-            assert weights.shape[0] == self.target.shape[0]
+            assert (
+                weights.shape[0] == target.shape[0]
+            ), "Weights and targets layer shapes are not compatible."
             cam = self.cam_weighted_sum(cam, weights, target, ReLU=False)
 
             return cam
 
-        features, _, index = self.extract_features(input_features, index)
+        features, _, index = self.extract_features(input_features, print_out, index)
 
         target = features[-1]
         target = target.cpu().data.numpy()[0, :]
@@ -225,9 +258,10 @@ class CAM(UnitCAM):
 
         cam = np.zeros(target.shape[1:], dtype=np.float32)
         target = np.squeeze(target)
+        weights = np.squeeze(weights).T
 
         assert (
-            weights.shape[0] == self.target.shape[0]
+            weights.shape[0] == target.shape[0]
         ), "Weights and targets layer shapes are not compatible."
         cam = self.cam_weighted_sum(cam, weights, target, ReLU=False)
 

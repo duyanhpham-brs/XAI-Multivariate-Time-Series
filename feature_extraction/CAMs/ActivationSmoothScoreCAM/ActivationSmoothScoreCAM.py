@@ -18,9 +18,9 @@ class ActivationSmoothScoreCAM(ScoreCAM):
 
         return output_
 
-    def compute_score_saliency_map(self, input_features, index):
+    def compute_score_saliency_map(self, input_features, print_out, index=None):
         activations, score_saliency_map, k, index = self.forward_saliency_map(
-            input_features, index
+            input_features, print_out, index
         )
         with torch.no_grad():
             for _ in range(self.smooth_factor):
