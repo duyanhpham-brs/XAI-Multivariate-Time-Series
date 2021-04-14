@@ -110,9 +110,9 @@ class UnitCAM:
                     cam += w * target.reshape(-1)[i]
         except TypeError:
             if len(target.shape) == 3:
-                cam += weights * target[0, :, :]
+                cam += weights * target[0:1, :, :]
             elif len(target.shape) == 2:
-                cam += weights * target[0, :]
+                cam += weights * target[0:1, :]
             elif (
                 len(target.shape) == 1
                 or target.shape[0] == 1

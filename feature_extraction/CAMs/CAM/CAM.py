@@ -258,6 +258,7 @@ class CAM(UnitCAM):
 
         cam = np.zeros(target.shape[1:], dtype=np.float32)
         target = np.squeeze(target)
+        weights = np.squeeze(weights).T
 
         assert (
             weights.shape[0] == target.shape[0]
