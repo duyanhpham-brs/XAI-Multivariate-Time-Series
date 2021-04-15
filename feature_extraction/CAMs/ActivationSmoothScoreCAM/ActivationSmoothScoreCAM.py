@@ -5,7 +5,7 @@ from feature_extraction.CAMs.ScoreCAM.ScoreCAM import ScoreCAM
 
 
 class ActivationSmoothScoreCAM(ScoreCAM):
-    """The implementation of Score-CAM for multivariate time series classification
+    """The implementation of Activation Smooth Score-CAM for multivariate time series classification
     CNN-based deep learning models
 
     Based on the paper:
