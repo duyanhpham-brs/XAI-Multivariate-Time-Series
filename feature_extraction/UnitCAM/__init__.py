@@ -43,7 +43,7 @@ class UnitCAM:
         """
         return self.model(input_features)
 
-    def extract_features(self, input_features, print_out, index, zero_out=False):
+    def extract_features(self, input_features, print_out, index, zero_out=None):
         """Extract the feature maps of the targeted layer
 
         Attributes:
