@@ -16,21 +16,21 @@ class FeatureExtractor:
     def save_gradient(self, grad):
         self.gradients.append(grad)
 
-    def __call__(self, x, zero_out=False):
+    def __call__(self, x, zero_out=None):
         outputs = []
         self.gradients = []
         for name, module in self.model._modules.items():
-            if zero_out:
-                if name in self.target_layers:
-                    module_temp = copy.deepcopy(module)
-                    module_temp.weight = torch.nn.Parameter(
-                        torch.zeros(*module.weight.size())
-                    )
-                    x = module_temp(x)
-                    x.register_hook(self.save_gradient)
-                    outputs += [x]
-                else:
-                    x = module(x)
+            if zero_out is not None:
+                with torch.no_grad():
+                    if name in self.target_layers:
+                        module_temp = copy.deepcopy(module)
+                        module_temp.weight[zero_out] = torch.zeros_like(
+                            module.weight[0]
+                        )
+                        x = module_temp(x)
+                        outputs += [x]
+                    else:
+                        x = module(x)
             else:
                 x = module(x)
                 if name in self.target_layers:
