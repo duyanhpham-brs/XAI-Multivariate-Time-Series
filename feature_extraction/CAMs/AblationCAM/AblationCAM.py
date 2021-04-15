@@ -4,7 +4,7 @@ from feature_extraction.UnitCAM import UnitCAM
 
 
 class AblationCAM(UnitCAM):
-    """The implementation of Score-CAM for multivariate time series classification
+    """The implementation of Ablation-CAM for multivariate time series classification
     CNN-based deep learning models
 
     Based on the paper:
