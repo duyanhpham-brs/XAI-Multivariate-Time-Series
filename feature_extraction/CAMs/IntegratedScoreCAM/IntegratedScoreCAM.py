@@ -56,8 +56,7 @@ class IntegratedScoreCAM(ScoreCAM):
 
                     assert input_features.shape[:-1] == norm_saliency_map.size()[:-1]
                     score_saliency_maps.append(
-                        (idx + 1)
-                        / self.smooth_factor
+                        ((idx + 1) / self.smooth_factor)
                         * input_features
                         * norm_saliency_map
                     )
