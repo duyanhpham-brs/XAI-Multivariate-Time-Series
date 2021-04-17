@@ -3,6 +3,15 @@
 
 # XAI-Multivariate-Time-Series
 
+## Installation
+
+This project is using `pipenv` to manage and organize the libraries. Before being up and running, please make sure to have `pipenv` in your system and do the following:
+
+```
+pipenv shell
+pipenv install
+```
+
 ## Basic Usage
 
 ```python
