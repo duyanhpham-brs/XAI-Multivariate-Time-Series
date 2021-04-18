@@ -28,6 +28,19 @@ class IntegratedScoreCAM(ScoreCAM):
         self.smooth_factor = kwargs["smooth_factor"]
 
     def compute_score_saliency_map(self, input_features, print_out, index):
+        """Compute the score saliency map
+
+        Attributes:
+        -------
+            input_features: A multivariate data input to the model
+            print_out: Whether to print the class with maximum likelihood when index is None
+            index: Targeted output class
+
+        Returns:
+        -------
+            cam: The resulting weighted feature maps
+            scores: Corresponding scores to the feature maps
+        """
         activations, score_saliency_map, k, index, output = self.forward_saliency_map(
             input_features, print_out, index
         )
