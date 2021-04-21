@@ -5,6 +5,16 @@ from utils.training_helpers import View, Squeeze, SwapLastDims
 
 
 class XCM(nn.Module):
+    """The implementation of XCM serial two-phase CNN-based models
+
+    Based on the paper:
+
+        Fauvel, K., Lin, T., Masson, V., Fromont, É., & Termier, A. (2020).
+        XCM: An Explainable Convolutional Neural Network for Multivariate Time Series
+        Classification. arXiv preprint arXiv:2009.04796.
+
+    """
+
     def __init__(self, window_size, time_length, feature_length, n_classes):
         super().__init__()
         self.cnn_layers1_b1 = nn.Sequential(

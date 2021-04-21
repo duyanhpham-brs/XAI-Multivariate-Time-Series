@@ -5,6 +5,20 @@ from utils.training_helpers import View
 
 
 class MTEX(nn.Module):
+    """The implementation of MTEX serial two-phase CNN-based models
+
+    Based on the paper:
+
+        Assaf, R., Giurgiu, I., Bagehorn, F., & Schumann, A. (2019, November).
+        MTEX-CNN: Multivariate Time Series EXplanations for Predictions with
+        Convolutional Neural Networks. In 2019 IEEE International Conference
+        on Data Mining (ICDM) (pp. 952-957). IEEE.
+
+    This implementation is modified to only support Multivariate Time Series
+    Classification data and the corresponding CNN-based models
+
+    """
+
     def __init__(self, time_length, feature_length, n_classes):
         super().__init__()
         self.cnn_layers = nn.Sequential(
