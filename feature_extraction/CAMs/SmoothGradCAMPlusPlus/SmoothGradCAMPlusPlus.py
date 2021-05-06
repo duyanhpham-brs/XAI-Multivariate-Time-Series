@@ -52,7 +52,9 @@ class SmoothGradCAMPlusPlus(GradCAMPlusPlus):
         third_derivatives = None
         for _ in range(self.smooth_factor):
             self.calculate_gradients(
-                input_features + self._distrib.sample(input_features.size()), index
+                input_features + self._distrib.sample(input_features.size()),
+                print_out,
+                index,
             )
             second_derivative = self.compute_second_derivative(
                 self.one_hot, self.target
