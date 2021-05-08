@@ -9,6 +9,7 @@ class TrainConfig(typing.NamedTuple):
     batch_size: int
     loss_func: typing.Callable
 
+
 class TestConfig(typing.NamedTuple):
     test_size: int
     batch_size: int
@@ -19,6 +20,7 @@ class TrainData(typing.NamedTuple):
     feats: np.ndarray
     targs: np.ndarray
 
+
 class TestData(typing.NamedTuple):
     feats: np.ndarray
     targs: np.ndarray
@@ -27,3 +29,5 @@ class TestData(typing.NamedTuple):
 DaRnnNet = collections.namedtuple(
     "DaRnnNet", ["encoder", "decoder", "enc_opt", "dec_opt"]
 )
+
+RetainNet = collections.namedtuple("RetainNet", ["model", "model_opt"])

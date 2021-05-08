@@ -2,6 +2,8 @@ from typing import Tuple
 import torch
 from torch import nn
 from torch.autograd import Variable
+from models.attention_based.helpers.train_darnn.constants import device
+
 
 # Dual-stage Attention-based Recurrent Neural Network
 # Cite: Qin, Y., Song, D., Chen, H., Cheng, W., Jiang, G., & Cottrell, G. (2017).
@@ -61,7 +63,6 @@ class Encoder(nn.Module):
 
     def forward(self, input_data: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         # input_data: (batch_size, T - 1, input_size)
-        device = input_data.device
         # print(input_data.size())
         input_weighted = Variable(torch.zeros(self.batch_size, self.input_size, input_data.size(1))).to(
             device
