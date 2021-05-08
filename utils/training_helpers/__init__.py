@@ -36,7 +36,10 @@ class Squeeze(nn.Module):
             if len(pre_x_size) == 3:
                 x = x.view((batch_size, -1))
             elif len(pre_x_size) == 4:
-                x = x.view((batch_size, x.size(0), x.size(1)))
+                if pre_x_size[-1] == 1 and pre_x_size[-2] == 1:
+                    x = x.view((batch_size, -1))
+                else:
+                    x = x.view((batch_size, x.size(0), x.size(1)))
         elif len(x.size()) == 1:
             x = x.view((batch_size, 1))
         return x
