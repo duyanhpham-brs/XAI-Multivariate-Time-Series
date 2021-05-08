@@ -110,6 +110,8 @@ def train(
     n_iter = 0
 
     for e_i in range(n_epochs):
+        net.encoder.train()
+        net.decoder.train()
         perm_idx = np.random.permutation(t_cfg.train_size)
         for t_i in range(0, t_cfg.train_size, t_cfg.batch_size):
             batch_idx = perm_idx[t_i : (t_i + t_cfg.batch_size)]
@@ -126,6 +128,8 @@ def train(
         )
 
         if e_i % 1 == 0:
+            net.encoder.eval()
+            net.decoder.eval()
             y_test_pred = predict(
                 net,
                 train_data,
@@ -176,6 +180,8 @@ def train(
                 torch.tensor(test_data.targs.reshape(-1)),
             ).numpy()
 
+            net.encoder.eval()
+            net.decoder.eval()
             y_train_pred = predict(
                 net,
                 train_data,
