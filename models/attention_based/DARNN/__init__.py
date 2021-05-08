@@ -1,7 +1,7 @@
+from typing import Tuple
 import torch
 from torch import nn
 from torch.autograd import Variable
-from typing import Tuple
 
 
 def init_hidden(x, hidden_size: int, num_layers: int) -> torch.autograd.Variable:
@@ -26,7 +26,7 @@ class Encoder(nn.Module):
         input size: number of underlying factors
         hidden_size: dimension of the hidden stats
         """
-        super(Encoder, self).__init__()
+        super().__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.batch_size = batch_size
@@ -130,7 +130,7 @@ class Decoder(nn.Module):
         gru_lstm: bool = True,
         num_layers: int = 1,
     ):
-        super(Decoder, self).__init__()
+        super().__init__()
         self.encoder_hidden_size = encoder_hidden_size
         self.decoder_hidden_size = decoder_hidden_size
         self.input_size = input_size

@@ -5,6 +5,7 @@ import os
 import torch
 from torch import nn
 from torch import optim
+import torch.tensor
 import matplotlib.pyplot as plt
 import numpy as np
 from models.attention_based.helpers.train_darnn.constants import device
@@ -25,7 +26,7 @@ def da_rnn(
     n_targs: int,
     encoder_hidden_size=64,
     decoder_hidden_size=64,
-    learning_rate=0.00001,
+    learning_rate=0.0001,
     batch_size=2,
     param_output_path="",
     save_path: str = None,
@@ -91,13 +92,9 @@ def train(
     test_data: TestData,
     test_cfg: TestConfig,
     t_cfg: TrainConfig,
-    train_config="",
     n_epochs=20,
-    wandb=False,
-    tensorboard=False,
 ):
-    if wandb:
-        import wandb
+
     iter_per_epoch = int(np.ceil(t_cfg.train_size * 1.0 / t_cfg.batch_size))
     iter_losses = np.zeros(n_epochs * iter_per_epoch)
     epoch_losses = np.zeros(n_epochs)
@@ -169,6 +166,7 @@ def train(
                 ),
                 torch.tensor(test_data.targs.reshape(-1)),
             ).numpy()
+
             y_train_pred = predict(
                 net,
                 train_data,
@@ -178,9 +176,32 @@ def train(
                 t_cfg.batch_size,
                 on_train=True,
             )
+            train_output = [
+                int(
+                    torch.argmax(
+                        torch.log(
+                            nn.functional.softmax(torch.tensor(y_train_pred), dim=1)
+                            + 1e-9
+                        )[i]
+                    ).numpy()
+                )
+                for i in range(
+                    len(
+                        torch.log(
+                            nn.functional.softmax(torch.tensor(y_train_pred), dim=1)
+                            + 1e-9
+                        )
+                    )
+                )
+            ]
+            train_acc = (
+                sum(train_data.targs.reshape(-1) == np.array(train_output))
+                / len(train_data.targs.reshape(-1))
+                * 100
+            )
 
             print(
-                f"Epoch {e_i} with Train loss = {epoch_losses[e_i]}, Val loss = {val_loss}, Val acc = {acc}%"
+                f"Epoch {e_i} with Train loss = {epoch_losses[e_i]}, Val loss = {val_loss}, Val acc = {acc}%, Train acc = {train_acc}%"
             )
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -226,7 +247,7 @@ def adjust_learning_rate(net: DaRnnNet, n_iter: int) -> None:
 def train_iteration(t_net: DaRnnNet, loss_func: typing.Callable, X, y_target):
     t_net.enc_opt.zero_grad()
     t_net.dec_opt.zero_grad()
-    input_weighted, input_encoded = t_net.encoder(numpy_to_tvar(X))
+    _, input_encoded = t_net.encoder(numpy_to_tvar(X))
     y_pred = t_net.decoder(input_encoded, numpy_to_tvar(X))
 
     y_true = numpy_to_tvar(y_target)
