@@ -4,61 +4,6 @@ from torch.autograd import Variable
 from typing import Tuple
 
 
-class DARNN(nn.Module):
-    def __init__(
-        self,
-        n_time_series: int,
-        hidden_size_encoder: int,
-        decoder_hidden_size: int,
-        out_feats=1,
-        dropout=0.01,
-        gru_lstm=True,
-        final_act=nn.ReLU,
-    ):
-
-        """For model benchmark information see link on side https://rb.gy/koozff
-        :param n_time_series: Number of time series present in input
-        :type n_time_series: int
-        :param hidden_size_encoder: dimension of the hidden state encoder
-        :type hidden_size_encoder: int
-        :param decoder_hidden_size: dimension of hidden size of the decoder
-        :type decoder_hidden_size: int
-        :param out_feats: [description], defaults to 1
-        :type out_feats: int, optional
-        :param dropout: defaults to .01
-        :type dropout: float, optional
-        :param gru_lstm: Specify true if you want to use LSTM, defaults to True
-        :type gru_lstm: bool, optional
-        """
-        super().__init__()
-        self.encoder = Encoder(n_time_series - 1, hidden_size_encoder, gru_lstm)
-        self.dropout = nn.Dropout(dropout)
-        self.decoder = Decoder(
-            hidden_size_encoder,
-            decoder_hidden_size,
-            out_feats,
-            gru_lstm,
-        )
-        self.final_act = final_act
-        if final_act:
-            self.final_act = final_act
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """[summary]
-        :param x: The core temporal data represented as a tensor (batch_size, n_time_series)
-        :type x: torch.Tensor
-        :return: The predictetd number should be in format
-        :rtype: torch.Tensor
-        """
-        _, input_encoded = self.encoder(x[:, :, 1:])
-        dropped_input = self.dropout(input_encoded)
-        y_pred = self.decoder(dropped_input, x[:, :, 0].unsqueeze(2))
-
-        if self.final_act:
-            return self.final_act(y_pred)
-        return y_pred
-
-
 def init_hidden(x, hidden_size: int, num_layers: int) -> torch.autograd.Variable:
     """
     Train the initial value of the hidden state:
