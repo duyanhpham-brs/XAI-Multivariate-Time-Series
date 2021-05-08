@@ -3,6 +3,14 @@ import torch
 from torch import nn
 from torch.autograd import Variable
 
+# Dual-stage Attention-based Recurrent Neural Network
+# Cite: Qin, Y., Song, D., Chen, H., Cheng, W., Jiang, G., & Cottrell, G. (2017).
+# A dual-stage attention-based recurrent neural network for time series prediction.
+# arXiv preprint arXiv:1704.02971.
+# 
+# Code adapted from https://github.com/AIStream-Peelout/flow-forecast/tree/master/flood_forecast/da_rnn
+#
+# Converted from univariate time series regression to multivariate time series classification
 
 def init_hidden(x, hidden_size: int, num_layers: int) -> torch.autograd.Variable:
     """

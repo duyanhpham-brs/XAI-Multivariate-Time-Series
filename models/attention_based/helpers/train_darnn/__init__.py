@@ -20,6 +20,14 @@ from models.attention_based.helpers.train_darnn.custom_types import (
 )
 from models.attention_based.helpers.train_darnn.utils import numpy_to_tvar
 
+# Dual-stage Attention-based Recurrent Neural Network
+# Cite: Qin, Y., Song, D., Chen, H., Cheng, W., Jiang, G., & Cottrell, G. (2017).
+# A dual-stage attention-based recurrent neural network for time series prediction.
+# arXiv preprint arXiv:1704.02971.
+# 
+# Code adapted from https://github.com/AIStream-Peelout/flow-forecast/tree/master/flood_forecast/da_rnn
+#
+# Converted from univariate time series regression to multivariate time series classification
 
 def da_rnn(
     train_data: TrainData,
