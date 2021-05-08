@@ -71,6 +71,7 @@ class Encoder(nn.Module):
     def __init__(
         self,
         input_size: int,
+        time_length: int,
         hidden_size: int,
         batch_size: int,
         gru_lstm: bool = True,
@@ -103,16 +104,16 @@ class Encoder(nn.Module):
                 num_layers=num_layers,
                 batch_first=True,
             )
-        self.attn_linear = nn.Linear(in_features=3 * hidden_size, out_features=1)
+        self.attn_linear = nn.Linear(in_features=self.hidden_size * 2 + time_length, out_features=1)
 
     def forward(self, input_data: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         # input_data: (batch_size, T - 1, input_size)
         device = input_data.device
         # print(input_data.size())
-        input_weighted = Variable(torch.zeros(input_data.size(0), self.input_size)).to(
+        input_weighted = Variable(torch.zeros(self.batch_size, self.input_size, input_data.size(1))).to(
             device
         )
-        input_encoded = Variable(torch.zeros(input_data.size(0), self.hidden_size)).to(
+        input_encoded = Variable(torch.zeros(self.batch_size, self.input_size, self.hidden_size)).to(
             device
         )
 
@@ -131,8 +132,8 @@ class Encoder(nn.Module):
         # Eqn. 8: concatenate the hidden states with each predictor
         x = torch.cat(
             (
-                hidden.repeat(self.input_size, 1, 1).permute(1, 0, 2),
-                cell.repeat(self.input_size, 1, 1).permute(1, 0, 2),
+                hidden.repeat(input_data.size(1), 1, 1).permute(1, 0, 2),
+                cell.repeat(input_data.size(1), 1, 1).permute(1, 0, 2),
                 input_data,
             ),
             dim=2,
@@ -140,7 +141,7 @@ class Encoder(nn.Module):
         # print(x.size())
         # Eqn. 8: Get attention weights
         x = self.attn_linear(
-            x.view(-1, self.hidden_size * 3)
+            x.view(-1, self.hidden_size * 2 + input_data.size(-1))
         )  # (batch_size * input_size) * 1
         # Eqn. 9: Softmax the attention weights
         # Had to replace functional with generic Softmax
@@ -178,6 +179,8 @@ class Decoder(nn.Module):
         self,
         encoder_hidden_size: int,
         decoder_hidden_size: int,
+        input_size: int,
+        time_length: int,
         out_feats=1,
         gru_lstm: bool = True,
         num_layers: int = 1,
@@ -185,6 +188,7 @@ class Decoder(nn.Module):
         super(Decoder, self).__init__()
         self.encoder_hidden_size = encoder_hidden_size
         self.decoder_hidden_size = decoder_hidden_size
+        self.input_size = input_size
         self.num_layers = num_layers
 
         self.attn_layer = nn.Sequential(
@@ -210,7 +214,7 @@ class Decoder(nn.Module):
                 num_layers=num_layers,
             )
 
-        self.fc = nn.Linear(encoder_hidden_size, out_feats)
+        self.fc = nn.Linear(encoder_hidden_size + time_length, out_feats)
 
         fc_final_out_feats = out_feats
         self.fc_final = nn.Linear(
@@ -247,7 +251,7 @@ class Decoder(nn.Module):
         x = self.softmax(
             self.attn_layer(
                 x.view(-1, 2 * self.decoder_hidden_size + self.encoder_hidden_size)
-            ).view(-1, input_encoded.size(1))
+            ).view(-1, self.input_size - 1)
         )  # (batch_size, T - 1)
 
         # Eqn. 14: compute context vector
@@ -263,10 +267,10 @@ class Decoder(nn.Module):
         # print(
         #     context.size(),
         #     input_data.size(),
-        #     context.repeat(input_encoded.size(1), 1, 1).size(),
+        #     context.repeat(input_encoded.size(1), input_data.size(1), 1).size(),
         # )
         y_tilde = self.fc(
-            torch.cat((context.repeat(input_encoded.size(1), 1, 1), input_data), dim=1)
+            torch.cat((context.repeat(input_encoded.size(1), input_data.size(1), 1), input_data), dim=2)
         )
         # Eqn. 16: LSTM
         # print(y_tilde.size())

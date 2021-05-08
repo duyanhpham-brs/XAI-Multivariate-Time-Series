@@ -25,7 +25,7 @@ def da_rnn(
     n_targs: int,
     encoder_hidden_size=64,
     decoder_hidden_size=64,
-    learning_rate=0.0001,
+    learning_rate=0.00001,
     batch_size=2,
     param_output_path="",
     save_path: str = None,
@@ -43,6 +43,7 @@ def da_rnn(
 
     enc_kwargs = {
         "input_size": train_data.feats.shape[1],
+        "time_length": train_data.feats.shape[-1],
         "hidden_size": encoder_hidden_size,
         "batch_size": batch_size,
         "num_layers": num_layers,
@@ -55,6 +56,8 @@ def da_rnn(
     dec_kwargs = {
         "encoder_hidden_size": encoder_hidden_size,
         "decoder_hidden_size": decoder_hidden_size,
+        "input_size": train_data.feats.shape[1],
+        "time_length": train_data.feats.shape[-1],
         "out_feats": n_targs,
         "num_layers": num_layers,
         "gru_lstm": gru_lstm,
