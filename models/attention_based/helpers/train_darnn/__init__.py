@@ -1,3 +1,5 @@
+# pylint: disable=not-callable
+# to fix torch.tensor lint error
 import typing
 from typing import Tuple
 import json
@@ -5,7 +7,6 @@ import os
 import torch
 from torch import nn
 from torch import optim
-import torch.tensor
 import matplotlib.pyplot as plt
 import numpy as np
 from models.attention_based.helpers.train_darnn.constants import device
