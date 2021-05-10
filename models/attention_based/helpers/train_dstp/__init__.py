@@ -41,6 +41,7 @@ def dstp_rnn(
     save_path: str = None,
     num_layers: int = 1,
     gru_lstm: bool = True,
+    parallel: bool = False
 ) -> Tuple[dict, DtspRnnNet]:
     """
     n_targs: The number of target columns (not steps)
@@ -58,6 +59,7 @@ def dstp_rnn(
         "batch_size": batch_size,
         "num_layers": num_layers,
         "gru_lstm": gru_lstm,
+        "parallel": parallel
     }
     encoder = Encoder(**enc_kwargs).to(device)
     with open(os.path.join(param_output_path, "enc_kwargs.json"), "w+") as fi:
@@ -71,6 +73,7 @@ def dstp_rnn(
         "out_feats": n_targs,
         "num_layers": num_layers,
         "gru_lstm": gru_lstm,
+        "parallel": parallel
     }
     decoder = Decoder(**dec_kwargs).to(device)
     with open(os.path.join(param_output_path, "dec_kwargs.json"), "w+") as fi:

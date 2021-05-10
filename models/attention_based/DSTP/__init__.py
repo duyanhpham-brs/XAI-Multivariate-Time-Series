@@ -61,6 +61,13 @@ class Encoder(nn.Module):
                 num_layers=num_layers,
                 batch_first=True,
             )
+            if self.parallel:
+                self.lstm_layer3 = nn.LSTM(
+                    input_size=input_size,
+                    hidden_size=hidden_size,
+                    num_layers=num_layers,
+                    batch_first=True,
+                )
         else:
             self.gru_layer1 = nn.GRU(
                 input_size=input_size,
@@ -74,6 +81,13 @@ class Encoder(nn.Module):
                 num_layers=num_layers,
                 batch_first=True,
             )
+            if self.parallel:
+                self.gru_layer3 = nn.GRU(
+                    input_size=input_size,
+                    hidden_size=hidden_size,
+                    num_layers=num_layers,
+                    batch_first=True,
+                )
 
         self.attn_linear1 = nn.Linear(
             in_features=self.hidden_size * 2 + time_length, out_features=1
@@ -81,6 +95,11 @@ class Encoder(nn.Module):
         self.attn_linear2 = nn.Linear(
             in_features=self.hidden_size * 2 + 2 * time_length, out_features=1
         )
+
+        if self.parallel:
+            self.attn_linear3 = nn.Linear(
+                in_features=self.hidden_size * 2 + 2 * time_length, out_features=1
+            )
 
     def forward(self, input_data: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         # input_data: (batch_size, T - 1, input_size)
@@ -97,6 +116,13 @@ class Encoder(nn.Module):
         input_encoded2 = Variable(
             torch.zeros(self.batch_size, self.input_size, self.hidden_size)
         ).to(device)
+        if self.parallel:
+            input_weighted3 = Variable(
+                torch.zeros(self.batch_size, self.input_size, input_data.size(1))
+            ).to(device)
+            input_encoded3 = Variable(
+                torch.zeros(self.batch_size, self.input_size, self.hidden_size)
+            ).to(device)
 
         # hidden, cell: initial states with dimension hidden_size
         hidden1 = init_hidden(
@@ -108,6 +134,12 @@ class Encoder(nn.Module):
             input_data, self.hidden_size, self.num_layers
         )  # 1 * batch_size * hidden_size
         cell2 = init_hidden(input_data, self.hidden_size, self.num_layers)
+
+        if self.parallel:
+            hidden3 = init_hidden(
+                input_data, self.hidden_size, self.num_layers
+            )  # 1 * batch_size * hidden_size
+            cell3 = init_hidden(input_data, self.hidden_size, self.num_layers)
 
         # print(
         #     hidden.repeat(self.input_size, 1, 1).permute(1, 0, 2).size(),
@@ -157,6 +189,50 @@ class Encoder(nn.Module):
 
         input_weighted1 = weighted_input1
 
+        if self.parallel:
+            # Eqn. 8: concatenate the hidden states with each predictor
+            x3 = torch.cat(
+                (
+                    hidden3.repeat(input_data.size(1), 1, 1).permute(1, 0, 2),
+                    cell3.repeat(input_data.size(1), 1, 1).permute(1, 0, 2),
+                    input_data,
+                    input_data
+                ),
+                dim=2,
+            )  # batch_size * input_size * (2*hidden_size + T - 1)
+            # print(x.size())
+            # Eqn. 8: Get attention weights
+            x3 = self.attn_linear3(
+                x3.view(-1, self.hidden_size * 2 + 2 * input_data.size(-1))
+            )  # (batch_size * input_size) * 1
+            # Eqn. 9: Softmax the attention weights
+            # Had to replace functional with generic Softmax
+            # (batch_size, input_size)
+            alpha3 = self.softmax(x1.view(-1, self.batch_size))
+            # Eqn. 10: LSTM
+            # (batch_size, input_size)
+
+            # print(attn_weights.T.unsqueeze(2).size(), input_data.size())
+            weighted_input3 = torch.mul(alpha3.T.unsqueeze(2), input_data)
+            # print(weighted_input.permute(0, 2, 1).size(), hidden.size(), cell.size())
+
+            if self.gru_lstm:
+                self.lstm_layer3.flatten_parameters()
+                _, generic_states3 = self.lstm_layer1(
+                    weighted_input3.permute(0, 2, 1), (hidden3, cell3)
+                )
+                cell1 = generic_states3[1]
+                hidden1 = generic_states3[0]
+            else:
+                self.gru_layer3.flatten_parameters()
+                __, generic_states3 = self.gru_layer1(
+                    weighted_input3.permute(0, 2, 1), hidden3
+                )
+                hidden3 = generic_states3[0].unsqueeze(0)
+
+            input_weighted3 = weighted_input3
+
+
         # Phase two encoder attention of DSTP-RNN
         x2 = torch.cat(
             (
@@ -173,7 +249,11 @@ class Encoder(nn.Module):
         )
 
         alpha2 = self.softmax(x2.view(-1, self.input_size))
-        weighted_input2 = torch.mul(alpha2.unsqueeze(2), weighted_input1)
+        if self.parallel:
+            weighted_input = torch.cat((weighted_input1, weighted_input3), dim=2)
+            weighted_input2 = torch.mul(alpha2.unsqueeze(2), weighted_input)
+        else:
+            weighted_input2 = torch.mul(alpha2.unsqueeze(2), weighted_input1)
 
         if self.gru_lstm:
             self.lstm_layer2.flatten_parameters()
@@ -184,7 +264,7 @@ class Encoder(nn.Module):
             hidden2 = generic_states2[0]
         else:
             self.gru_layer2.flatten_parameters()
-            __, generic_states = self.gru_layer2(
+            __, generic_states2 = self.gru_layer2(
                 weighted_input2.permute(0, 2, 1), hidden2
             )
             hidden2 = generic_states2[0].unsqueeze(0)
@@ -206,12 +286,14 @@ class Decoder(nn.Module):
         out_feats=1,
         gru_lstm: bool = True,
         num_layers: int = 1,
+        parallel: bool = False
     ):
         super().__init__()
         self.encoder_hidden_size = encoder_hidden_size
         self.decoder_hidden_size = decoder_hidden_size
         self.input_size = input_size
         self.num_layers = num_layers
+        self.parallel = parallel
 
         self.attn_layer = nn.Sequential(
             nn.Linear(
