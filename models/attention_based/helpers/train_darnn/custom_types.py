@@ -30,4 +30,8 @@ DaRnnNet = collections.namedtuple(
     "DaRnnNet", ["encoder", "decoder", "enc_opt", "dec_opt"]
 )
 
+DtspRnnNet = collections.namedtuple(
+    "DtspRnnNet", ["encoder", "decoder", "enc_opt", "dec_opt"]
+)
+
 RetainNet = collections.namedtuple("RetainNet", ["model", "model_opt"])
