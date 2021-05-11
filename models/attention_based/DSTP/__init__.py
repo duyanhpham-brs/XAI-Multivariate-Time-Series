@@ -92,14 +92,19 @@ class Encoder(nn.Module):
         self.attn_linear1 = nn.Linear(
             in_features=self.hidden_size * 2 + time_length, out_features=1
         )
-        self.attn_linear2 = nn.Linear(
-            in_features=self.hidden_size * 2 + 2 * time_length, out_features=1
-        )
-
+        
         if self.parallel:
+            self.attn_linear2 = nn.Linear(
+                in_features=self.hidden_size * 2 + 3 * time_length, out_features=1
+            )
             self.attn_linear3 = nn.Linear(
                 in_features=self.hidden_size * 2 + 2 * time_length, out_features=1
             )
+        else:
+            self.attn_linear2 = nn.Linear(
+                in_features=self.hidden_size * 2 + 2 * time_length, out_features=1
+            )
+        
 
     def forward(self, input_data: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         # input_data: (batch_size, T - 1, input_size)
@@ -149,6 +154,7 @@ class Encoder(nn.Module):
 
         # Phase one encoder attention of DSTP-RNN
         # Eqn. 8: concatenate the hidden states with each predictor
+        print("Encoder started")
         x1 = torch.cat(
             (
                 hidden1.repeat(input_data.size(1), 1, 1).permute(1, 0, 2),
@@ -234,19 +240,35 @@ class Encoder(nn.Module):
 
 
         # Phase two encoder attention of DSTP-RNN
-        x2 = torch.cat(
-            (
-                hidden2.repeat(self.input_size, 1, 1).permute(1, 0, 2),  # 233 363 1042
-                cell2.repeat(self.input_size, 1, 1).permute(1, 0, 2),
-                input_data,
-                input_data,
-            ),
-            dim=2,
-        )
+        if self.parallel:
+            x2 = torch.cat(
+                (
+                    hidden2.repeat(self.input_size, 1, 1).permute(1, 0, 2),  # 233 363 1042
+                    cell2.repeat(self.input_size, 1, 1).permute(1, 0, 2),
+                    input_weighted1,
+                    input_weighted3,
+                    input_data,
+                ),
+                dim=2,
+            )
 
-        x2 = self.attn_linear2(
-            x2.view(-1, self.hidden_size * 2 + 2 * input_data.size(-1))
-        )
+            x2 = self.attn_linear2(
+                x2.view(-1, self.hidden_size * 2 + 3 * input_data.size(-1))
+            )
+        else:
+            x2 = torch.cat(
+                (
+                    hidden2.repeat(self.input_size, 1, 1).permute(1, 0, 2),  # 233 363 1042
+                    cell2.repeat(self.input_size, 1, 1).permute(1, 0, 2),
+                    input_weighted1,
+                    input_data,
+                ),
+                dim=2,
+            )
+
+            x2 = self.attn_linear2(
+                x2.view(-1, self.hidden_size * 2 + 2 * input_data.size(-1))
+            )
 
         alpha2 = self.softmax(x2.view(-1, self.input_size))
         if self.parallel:
@@ -341,6 +363,7 @@ class Decoder(nn.Module):
         #     cell.repeat(8, 1, 1).permute(1, 0, 2).size(),
         #     input_encoded.size(),
         # )
+        print("Decoder started")
         x = torch.cat(
             (
                 hidden.repeat(input_encoded.size(1), 1, 1).permute(1, 0, 2),

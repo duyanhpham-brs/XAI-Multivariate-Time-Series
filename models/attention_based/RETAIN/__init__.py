@@ -113,6 +113,7 @@ class RetainNN(nn.Module):
         # num_layers(1)*num_directions(1)
         # batch: batch_size
         # hidden_size:
+        print("Visit Level started")
         if self.reverse_rnn_feeding:
             self.visit_level_rnn.flatten_parameters()
             visit_rnn_output, visit_rnn_hidden = self.visit_level_rnn(
@@ -127,6 +128,7 @@ class RetainNN(nn.Module):
             alpha = self.visit_level_attention(visit_rnn_output)
         visit_attn_w = F.softmax(alpha, dim=0)
 
+        print("Variable Level started")
         if self.reverse_rnn_feeding:
             self.variable_level_rnn.flatten_parameters()
             var_rnn_output, var_rnn_hidden = self.variable_level_rnn(
