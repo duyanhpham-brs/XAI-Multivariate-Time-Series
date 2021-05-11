@@ -85,9 +85,10 @@ class Encoder(nn.Module):
         #     cell.repeat(self.input_size, 1, 1).permute(1, 0, 2).size(),
         #     input_data.size(),
         # )
-
+        print("Encoder started")
         # Eqn. 8: concatenate the hidden states with each predictor
         for i in range(input_data.shape[-1]):
+            print(f"Step {i}")
             x = torch.cat(
                 (
                     hidden.repeat(input_data.size(1), 1, 1).permute(1, 0, 2),
@@ -107,7 +108,6 @@ class Encoder(nn.Module):
             attn_weights = self.softmax(x.view(-1, self.batch_size))
             # Eqn. 10: LSTM
             # (batch_size, input_size)
-
             # print(attn_weights.T.unsqueeze(2).size(), input_data.size())
             weighted_input = torch.mul(attn_weights.T.unsqueeze(2), input_data)
             # print(weighted_input.permute(0, 2, 1).size(), hidden.size(), cell.size())
@@ -190,7 +190,9 @@ class Decoder(nn.Module):
         context = Variable(torch.zeros(input_encoded.size(0), self.encoder_hidden_size))
 
         # (batch_size, T, (2 * decoder_hidden_size + encoder_hidden_size))
+        print("Decoder started")
         for i in range(input_data.shape[-1]):
+            print(f"Step {i}")
             # print(
             #     hidden.repeat(input_encoded.size(1), 1, 1).permute(1, 0, 2).size(),
             #     cell.repeat(input_encoded.size(1), 1, 1).permute(1, 0, 2).size(),
@@ -220,28 +222,28 @@ class Decoder(nn.Module):
             x = self.softmax(
                 self.attn_layer(
                     x.view(-1, 2 * self.decoder_hidden_size + self.encoder_hidden_size)
-                ).view(-1, self.input_size - 1)
+                ).view(-1, 1)
             )  # (batch_size, T - 1)
 
             # Eqn. 14: compute context vector
             # print(
             #     x.unsqueeze(1).size(),
-            #     input_encoded.size(),
-            #     torch.bmm(x.unsqueeze(1), input_encoded).size(),
+            #     input_encoded.view(-1, 1, self.decoder_hidden_size).size(),
+            #     # torch.bmm(x.unsqueeze(1), input_encoded).size(),
             # )
-            context = torch.bmm(x.unsqueeze(1), input_encoded)
+            context = torch.bmm(x.unsqueeze(1), input_encoded.view(-1, 1, self.decoder_hidden_size))
 
             # Eqn. 15
             # (batch_size, out_size)
             # print(
             #     context.size(),
-            #     input_data.size(),
-            #     context.repeat(input_encoded.size(1), input_data.size(1), 1).size(),
+            #     input_data[:, :, i].unsqueeze(2).size(),
+            #     context.repeat(1, input_data.size(1), 1).size(),
             # )
             y_tilde = self.fc(
                 torch.cat(
                     (
-                        context.repeat(input_encoded.size(1), input_data.size(1), 1),
+                        context.repeat(1, input_data.size(1), 1),
                         input_data[:, :, i].unsqueeze(2),
                     ),
                     dim=2,
@@ -288,6 +290,7 @@ class Decoder(nn.Module):
                     )
                     hidden = generic_states[0].unsqueeze(0)
 
+        # print(hidden[0].unsqueeze(0).size(), context.view(context.size(1),context.size(0),-1).size())
         # print(
         #     "Final size: ",self.fc_final(
         #         torch.cat(
@@ -297,6 +300,6 @@ class Decoder(nn.Module):
         # )
         return self.fc_final(
             torch.cat(
-                (hidden[0].unsqueeze(0), context.repeat(1, hidden[0].size(0), 1)), dim=2
+                (hidden[0].unsqueeze(0), context.view(context.size(1),context.size(0),-1)), dim=2
             ).view(-1, self.decoder_hidden_size + self.encoder_hidden_size)
         )
