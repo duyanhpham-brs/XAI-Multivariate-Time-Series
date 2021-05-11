@@ -9,10 +9,11 @@ from models.attention_based.helpers.train_darnn.constants import device
 # Cite: Qin, Y., Song, D., Chen, H., Cheng, W., Jiang, G., & Cottrell, G. (2017).
 # A dual-stage attention-based recurrent neural network for time series prediction.
 # arXiv preprint arXiv:1704.02971.
-# 
+#
 # Code adapted from https://github.com/AIStream-Peelout/flow-forecast/tree/master/flood_forecast/da_rnn
 #
 # Converted from univariate time series regression to multivariate time series classification
+
 
 def init_hidden(x, hidden_size: int, num_layers: int) -> torch.autograd.Variable:
     """
@@ -59,17 +60,19 @@ class Encoder(nn.Module):
                 num_layers=num_layers,
                 batch_first=True,
             )
-        self.attn_linear = nn.Linear(in_features=self.hidden_size * 2 + time_length, out_features=1)
+        self.attn_linear = nn.Linear(
+            in_features=self.hidden_size * 2 + 1, out_features=1
+        )
 
     def forward(self, input_data: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         # input_data: (batch_size, T - 1, input_size)
         # print(input_data.size())
-        input_weighted = Variable(torch.zeros(self.batch_size, self.input_size, input_data.size(1))).to(
-            device
-        )
-        input_encoded = Variable(torch.zeros(self.batch_size, self.input_size, self.hidden_size)).to(
-            device
-        )
+        input_weighted = Variable(
+            torch.zeros(self.batch_size, self.input_size, input_data.size(1))
+        ).to(device)
+        input_encoded = Variable(
+            torch.zeros(self.batch_size, self.input_size, self.hidden_size)
+        ).to(device)
 
         # hidden, cell: initial states with dimension hidden_size
         hidden = init_hidden(
@@ -82,44 +85,47 @@ class Encoder(nn.Module):
         #     cell.repeat(self.input_size, 1, 1).permute(1, 0, 2).size(),
         #     input_data.size(),
         # )
-
+        print("Encoder started")
         # Eqn. 8: concatenate the hidden states with each predictor
-        x = torch.cat(
-            (
-                hidden.repeat(input_data.size(1), 1, 1).permute(1, 0, 2),
-                cell.repeat(input_data.size(1), 1, 1).permute(1, 0, 2),
-                input_data,
-            ),
-            dim=2,
-        )  # batch_size * input_size * (2*hidden_size + T - 1)
-        # print(x.size())
-        # Eqn. 8: Get attention weights
-        x = self.attn_linear(
-            x.view(-1, self.hidden_size * 2 + input_data.size(-1))
-        )  # (batch_size * input_size) * 1
-        # Eqn. 9: Softmax the attention weights
-        # Had to replace functional with generic Softmax
-        # (batch_size, input_size)
-        attn_weights = self.softmax(x.view(-1, self.batch_size))
-        # Eqn. 10: LSTM
-        # (batch_size, input_size)
-
-        # print(attn_weights.T.unsqueeze(2).size(), input_data.size())
-        weighted_input = torch.mul(attn_weights.T.unsqueeze(2), input_data)
-        # print(weighted_input.permute(0, 2, 1).size(), hidden.size(), cell.size())
-        # Fix the warning about non-contiguous memory
-        # see https://discuss.pytorch.org/t/dataparallel-issue-with-flatten-parameter/8282
-        if self.gru_lstm:
-            self.lstm_layer.flatten_parameters()
-            _, generic_states = self.lstm_layer(
-                weighted_input.permute(0, 2, 1), (hidden, cell)
-            )
-            cell = generic_states[1]
-            hidden = generic_states[0]
-        else:
-            self.gru_layer.flatten_parameters()
-            __, generic_states = self.gru_layer(weighted_input.permute(0, 2, 1), hidden)
-            hidden = generic_states[0].unsqueeze(0)
+        for i in range(input_data.shape[-1]):
+            print(f"Step {i}")
+            x = torch.cat(
+                (
+                    hidden.repeat(input_data.size(1), 1, 1).permute(1, 0, 2),
+                    cell.repeat(input_data.size(1), 1, 1).permute(1, 0, 2),
+                    input_data[:, :, i].unsqueeze(2),
+                ),
+                dim=2,
+            )  # batch_size * input_size * (2*hidden_size + T - 1)
+            # print(x.size())
+            # Eqn. 8: Get attention weights
+            x = self.attn_linear(
+                x.view(-1, self.hidden_size * 2 + 1)
+            )  # (batch_size * input_size) * 1
+            # Eqn. 9: Softmax the attention weights
+            # Had to replace functional with generic Softmax
+            # (batch_size, input_size)
+            attn_weights = self.softmax(x.view(-1, self.batch_size))
+            # Eqn. 10: LSTM
+            # (batch_size, input_size)
+            # print(attn_weights.T.unsqueeze(2).size(), input_data.size())
+            weighted_input = torch.mul(attn_weights.T.unsqueeze(2), input_data)
+            # print(weighted_input.permute(0, 2, 1).size(), hidden.size(), cell.size())
+            # Fix the warning about non-contiguous memory
+            # see https://discuss.pytorch.org/t/dataparallel-issue-with-flatten-parameter/8282
+            if self.gru_lstm:
+                self.lstm_layer.flatten_parameters()
+                _, generic_states = self.lstm_layer(
+                    weighted_input.permute(0, 2, 1), (hidden, cell)
+                )
+                cell = generic_states[1]
+                hidden = generic_states[0]
+            else:
+                self.gru_layer.flatten_parameters()
+                __, generic_states = self.gru_layer(
+                    weighted_input.permute(0, 2, 1), hidden
+                )
+                hidden = generic_states[0].unsqueeze(0)
 
             # Save output
         input_weighted = weighted_input
@@ -168,12 +174,10 @@ class Decoder(nn.Module):
                 num_layers=num_layers,
             )
 
-        self.fc = nn.Linear(encoder_hidden_size + time_length, out_feats)
+        self.fc = nn.Linear(encoder_hidden_size + 1, out_feats)
 
         fc_final_out_feats = out_feats
-        self.fc_final = nn.Linear(
-            decoder_hidden_size + encoder_hidden_size, fc_final_out_feats
-        )
+        self.fc_final = nn.Linear(decoder_hidden_size + encoder_hidden_size, fc_final_out_feats)
 
         self.fc.weight.data.normal_()
 
@@ -186,74 +190,116 @@ class Decoder(nn.Module):
         context = Variable(torch.zeros(input_encoded.size(0), self.encoder_hidden_size))
 
         # (batch_size, T, (2 * decoder_hidden_size + encoder_hidden_size))
-        # print(
-        #     hidden.repeat(8, 1, 1).permute(1, 0, 2).size(),
-        #     cell.repeat(8, 1, 1).permute(1, 0, 2).size(),
-        #     input_encoded.size(),
-        # )
-        x = torch.cat(
-            (
-                hidden.repeat(input_encoded.size(1), 1, 1).permute(1, 0, 2),
-                cell.repeat(input_encoded.size(1), 1, 1).permute(1, 0, 2),
-                input_encoded,
-            ),
-            dim=2,
-        )
-        # print(x.size())
-        # Eqn. 12 & 13: softmax on the computed attention weights
-        # Had to replace functional with generic Softmax
-        x = self.softmax(
-            self.attn_layer(
-                x.view(-1, 2 * self.decoder_hidden_size + self.encoder_hidden_size)
-            ).view(-1, self.input_size - 1)
-        )  # (batch_size, T - 1)
+        print("Decoder started")
+        for i in range(input_data.shape[-1]):
+            print(f"Step {i}")
+            # print(
+            #     hidden.repeat(input_encoded.size(1), 1, 1).permute(1, 0, 2).size(),
+            #     cell.repeat(input_encoded.size(1), 1, 1).permute(1, 0, 2).size(),
+            #     input_encoded.size(),
+            # )
+            if i > 0:
+                x = torch.cat(
+                    (
+                        hidden,
+                        cell,
+                        input_encoded,
+                    ),
+                    dim=2,
+                )
+            else:
+                x = torch.cat(
+                    (
+                        hidden.repeat(input_encoded.size(1), 1, 1).permute(1, 0, 2),
+                        cell.repeat(input_encoded.size(1), 1, 1).permute(1, 0, 2),
+                        input_encoded,
+                    ),
+                    dim=2,
+                )
+            # print(x.size())
+            # Eqn. 12 & 13: softmax on the computed attention weights
+            # Had to replace functional with generic Softmax
+            x = self.softmax(
+                self.attn_layer(
+                    x.view(-1, 2 * self.decoder_hidden_size + self.encoder_hidden_size)
+                ).view(-1, 1)
+            )  # (batch_size, T - 1)
 
-        # Eqn. 14: compute context vector
-        # print(
-        #     x.unsqueeze(1).size(),
-        #     input_encoded.size(),
-        #     torch.bmm(x.unsqueeze(1), input_encoded).size(),
-        # )
-        context = torch.bmm(x.unsqueeze(1), input_encoded)
+            # Eqn. 14: compute context vector
+            # print(
+            #     x.unsqueeze(1).size(),
+            #     input_encoded.view(-1, 1, self.decoder_hidden_size).size(),
+            #     # torch.bmm(x.unsqueeze(1), input_encoded).size(),
+            # )
+            context = torch.bmm(x.unsqueeze(1), input_encoded.view(-1, 1, self.decoder_hidden_size))
 
-        # Eqn. 15
-        # (batch_size, out_size)
-        # print(
-        #     context.size(),
-        #     input_data.size(),
-        #     context.repeat(input_encoded.size(1), input_data.size(1), 1).size(),
-        # )
-        y_tilde = self.fc(
-            torch.cat((context.repeat(input_encoded.size(1), input_data.size(1), 1), input_data), dim=2)
-        )
-        # Eqn. 16: LSTM
-        # print(y_tilde.size())
-        if self.gru_lstm:
-            self.lstm_layer.flatten_parameters()
-            _, lstm_output = self.lstm_layer(
-                y_tilde.view(y_tilde.size(1), y_tilde.size(0), y_tilde.size(2)),
-                (
-                    hidden.repeat(1, y_tilde.size(0), 1),
-                    cell.repeat(1, y_tilde.size(0), 1),
-                ),
+            # Eqn. 15
+            # (batch_size, out_size)
+            # print(
+            #     context.size(),
+            #     input_data[:, :, i].unsqueeze(2).size(),
+            #     context.repeat(1, input_data.size(1), 1).size(),
+            # )
+            y_tilde = self.fc(
+                torch.cat(
+                    (
+                        context.repeat(1, input_data.size(1), 1),
+                        input_data[:, :, i].unsqueeze(2),
+                    ),
+                    dim=2,
+                )
             )
-            hidden = lstm_output[0]  # 1 * batch_size * decoder_hidden_size
-            cell = lstm_output[1]  # 1 * batch_size * decoder_hidden_size
-        else:
-            self.gru_layer.flatten_parameters()
-            __, generic_states = self.gru_layer(
-                y_tilde.view(y_tilde.size(1), y_tilde.size(0), y_tilde.size(2)),
-                hidden.repeat(1, y_tilde.size(0), 1),
-            )
-            hidden = generic_states[0].unsqueeze(0)
+            # print(y_tilde.size())
+            # Eqn. 16: LSTM
+            if self.gru_lstm:
+                self.lstm_layer.flatten_parameters()
+                if i > 0:
+                    _, lstm_output = self.lstm_layer(
+                        y_tilde.view(y_tilde.size(1), y_tilde.size(0), y_tilde.size(2)),
+                        (
+                            hidden,
+                            cell,
+                        ),
+                    )
+                    hidden = lstm_output[0]
+                    cell = lstm_output[1]
+                else:
+                    _, lstm_output = self.lstm_layer(
+                        y_tilde.view(y_tilde.size(1), y_tilde.size(0), y_tilde.size(2)),
+                        (
+                            hidden.repeat(1, y_tilde.size(0), 1),
+                            cell.repeat(1, y_tilde.size(0), 1),
+                        ),
+                    )
+                    hidden = lstm_output[0]  # 1 * batch_size * decoder_hidden_size
+                    cell = lstm_output[1]
+            else:
+                
+                if i > 0:
+                    self.gru_layer.flatten_parameters()
+                    __, generic_states = self.gru_layer(
+                        y_tilde.view(y_tilde.size(1), y_tilde.size(0), y_tilde.size(2)),
+                        hidden,
+                    )
+                    hidden = generic_states[0].unsqueeze(0)
+                else:
+                    self.gru_layer.flatten_parameters()
+                    __, generic_states = self.gru_layer(
+                        y_tilde.view(y_tilde.size(1), y_tilde.size(0), y_tilde.size(2)),
+                        hidden.repeat(1, y_tilde.size(0), 1),
+                    )
+                    hidden = generic_states[0].unsqueeze(0)
 
+        # print(hidden[0].unsqueeze(0).size(), context.view(context.size(1),context.size(0),-1).size())
         # print(
-        #     torch.cat(
-        #         (hidden[0].unsqueeze(0), context.repeat(1, hidden[0].size(0), 1)), dim=2
+        #     "Final size: ",self.fc_final(
+        #         torch.cat(
+        #             (hidden[0].unsqueeze(0), context), dim=2
+        #         ).view(-1, self.decoder_hidden_size + self.encoder_hidden_size)
         #     ).size()
         # )
         return self.fc_final(
             torch.cat(
-                (hidden[0].unsqueeze(0), context.repeat(1, hidden[0].size(0), 1)), dim=2
+                (hidden[0].unsqueeze(0), context.view(context.size(1),context.size(0),-1)), dim=2
             ).view(-1, self.decoder_hidden_size + self.encoder_hidden_size)
         )

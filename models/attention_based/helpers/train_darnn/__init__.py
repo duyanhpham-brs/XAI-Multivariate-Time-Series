@@ -24,10 +24,11 @@ from models.attention_based.helpers.train_darnn.utils import numpy_to_tvar
 # Cite: Qin, Y., Song, D., Chen, H., Cheng, W., Jiang, G., & Cottrell, G. (2017).
 # A dual-stage attention-based recurrent neural network for time series prediction.
 # arXiv preprint arXiv:1704.02971.
-# 
+#
 # Code adapted from https://github.com/AIStream-Peelout/flow-forecast/tree/master/flood_forecast/da_rnn
 #
 # Converted from univariate time series regression to multivariate time series classification
+
 
 def da_rnn(
     train_data: TrainData,
@@ -113,10 +114,13 @@ def train(
         net.encoder.train()
         net.decoder.train()
         perm_idx = np.random.permutation(t_cfg.train_size)
+        batch = 0
         for t_i in range(0, t_cfg.train_size, t_cfg.batch_size):
             batch_idx = perm_idx[t_i : (t_i + t_cfg.batch_size)]
             feats, y_target = prep_train_data(batch_idx, train_data)
+            batch += 1
             if len(feats) > 0 and len(y_target) > 0:
+                print(f"Batch {batch} / {t_cfg.train_size // t_cfg.batch_size}")
                 # print(feats.shape, y_target.shape)
                 loss = train_iteration(net, t_cfg.loss_func, feats, y_target)
                 iter_losses[e_i * iter_per_epoch + t_i // t_cfg.batch_size] = loss
@@ -292,7 +296,10 @@ def predict(
     else:
         y_pred = np.zeros((test_size, out_size))
 
+    n_iter = 0
     for y_i in range(0, len(y_pred), batch_size):
+        n_iter += 1
+        print(f"Batch {n_iter} / {test_size // batch_size}")
         y_slc = slice(y_i, y_i + batch_size)
         batch_idx = range(len(y_pred))[y_slc]
         b_len = len(batch_idx)
