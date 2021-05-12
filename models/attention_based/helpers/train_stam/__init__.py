@@ -34,7 +34,8 @@ def stam(
     test_data: TestData,
     n_targs: int,
     encoder_hidden_size=64,
-    learning_rate=0.001,
+    decoder_hidden_size=64,
+    learning_rate=0.0001,
     batch_size=2,
     param_output_path="",
     save_path: str = None,
@@ -56,7 +57,9 @@ def stam(
         "time_length": train_data.feats.shape[-1],
         "hidden_size": encoder_hidden_size,
         "batch_size": batch_size,
+        "num_layers": num_layers,
         "gru_lstm": gru_lstm,
+        "parallel": parallel
     }
     encoder = Encoder(**enc_kwargs).to(device)
     with open(os.path.join(param_output_path, "enc_kwargs.json"), "w+") as fi:
@@ -64,11 +67,13 @@ def stam(
 
     dec_kwargs = {
         "encoder_hidden_size": encoder_hidden_size,
-        "out_feats": n_targs,
+        "decoder_hidden_size": decoder_hidden_size,
+        "num_layers": num_layers,
+        "gru_lstm": gru_lstm,
+        "parallel": parallel
     }
     decoder = Decoder(**dec_kwargs).to(device)
     with open(os.path.join(param_output_path, "dec_kwargs.json"), "w+") as fi:
-        json.dump(dec_kwargs, fi, indent=4)
     if save_path:
         # dir_path = os.path.dirname(os.path.realpath(__file__))
         print("Resuming training from " + os.path.join(save_path, "encoder.pth"))
@@ -108,8 +113,6 @@ def train(
         net.decoder.train()
         perm_idx = np.random.permutation(t_cfg.train_size)
         batch = 0
-        print("--------------------Training-------------------------")
-        print(f"Batch {batch+1} / {t_cfg.train_size // t_cfg.batch_size}")
         for t_i in range(0, t_cfg.train_size, t_cfg.batch_size):
             batch_idx = perm_idx[t_i : (t_i + t_cfg.batch_size)]
             feats, y_target = prep_train_data(batch_idx, train_data)
@@ -117,20 +120,7 @@ def train(
             if len(feats) > 0 and len(y_target) > 0:
                 if batch % ((t_cfg.train_size // t_cfg.batch_size) // 4) == 0:
                     print(f"Batch {batch} / {t_cfg.train_size // t_cfg.batch_size}")
-                # print(feats.shape, y_target.shape)
-                loss = train_iteration(net, t_cfg.loss_func, feats, y_target)
-                iter_losses[e_i * iter_per_epoch + t_i // t_cfg.batch_size] = loss
-                n_iter += 1
-                adjust_learning_rate(net, n_iter)
-
-        epoch_losses[e_i] = np.mean(
-            iter_losses[range(e_i * iter_per_epoch, (e_i + 1) * iter_per_epoch)]
-        )
-
-        if e_i % 1 == 0:
-            net.encoder.eval()
-            net.decoder.eval()
-            print("--------------------Calculating Test Acc-------------------------")
+                print(f"Batch {batch} / {t_cfg.train_size // t_cfg.batch_size}")
             y_test_pred = predict(
                 net,
                 train_data,
@@ -140,7 +130,6 @@ def train(
                 t_cfg.batch_size,
                 on_train=False,
             )
-            # print(y_test_pred.size())
             output = [
                 int(
                     torch.argmax(
@@ -184,7 +173,6 @@ def train(
 
             net.encoder.eval()
             net.decoder.eval()
-            print("--------------------Calculating Train Acc-------------------------")
             y_train_pred = predict(
                 net,
                 train_data,
@@ -250,7 +238,7 @@ def prep_train_data(batch_idx: np.ndarray, train_data: TrainData) -> Tuple:
     return feats, y_target
 
 
-def adjust_learning_rate(net: STAM, n_iter: int) -> None:
+def adjust_learning_rate(net: DtspRnnNet, n_iter: int) -> None:
     # TODO: Where did this Learning Rate adjustment schedule come from?
     # Should be modified to use Cosine Annealing with warm restarts
     # https://www.jeremyjordan.me/nn-learning-rate/
@@ -262,17 +250,15 @@ def adjust_learning_rate(net: STAM, n_iter: int) -> None:
             dec_params["lr"] = dec_params["lr"] * 0.9
 
 
-def train_iteration(t_net: STAM, loss_func: typing.Callable, X, y_target):
+def train_iteration(t_net: DtspRnnNet, loss_func: typing.Callable, X, y_target):
     t_net.enc_opt.zero_grad()
     t_net.dec_opt.zero_grad()
     _, input_encoded = t_net.encoder(numpy_to_tvar(X))
-    y_pred = t_net.decoder(input_encoded)
+    y_pred = t_net.decoder(input_encoded, numpy_to_tvar(X))
 
     y_true = numpy_to_tvar(y_target)
-    # print(y_pred, y_true)
     # print(y_true.size(), y_pred.size())
     loss = loss_func(y_pred, y_true.view(-1).long())
-    # print(loss)
     loss.backward()
 
     t_net.enc_opt.step()
@@ -298,15 +284,9 @@ def predict(
         y_pred = np.zeros((test_size, out_size))
 
     n_iter = 0
-    print("Batch 1")
     for y_i in range(0, len(y_pred), batch_size):
         n_iter += 1
-        if on_train:
-            if n_iter % ((train_size // batch_size) // 4) == 0:
-                print(f"Batch {n_iter} / {train_size // batch_size}")
-        else:
-            if n_iter % ((test_size // batch_size) // 4) == 0:
-                print(f"Batch {n_iter} / {test_size // batch_size}")
+        print(f"Batch {n_iter} / {test_size // batch_size}")
         y_slc = slice(y_i, y_i + batch_size)
         batch_idx = range(len(y_pred))[y_slc]
         b_len = len(batch_idx)
@@ -329,8 +309,7 @@ def predict(
         _, input_encoded = t_net.encoder(numpy_to_tvar(X))
         # print(input_encoded.size(), y_target.size())
         y_pred[y_slc] = (
-            t_net.decoder(input_encoded).cpu().data.numpy()
+            t_net.decoder(input_encoded, numpy_to_tvar(X)).cpu().data.numpy()
         )
-        # print(y_pred[y_slc])
 
     return y_pred
