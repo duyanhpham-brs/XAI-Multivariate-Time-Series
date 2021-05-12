@@ -10,9 +10,9 @@ from torch import optim
 import matplotlib.pyplot as plt
 import numpy as np
 from models.attention_based.helpers.train_darnn.constants import device
-from models.attention_based.DSTP import Encoder, Decoder
+from models.attention_based.GEOMAN import Encoder, Decoder
 from models.attention_based.helpers.train_darnn.custom_types import (
-    DtspRnnNet,
+    GeoMan,
     TrainData,
     TrainConfig,
     TestConfig,
@@ -20,16 +20,11 @@ from models.attention_based.helpers.train_darnn.custom_types import (
 )
 from models.attention_based.helpers.train_darnn.utils import numpy_to_tvar
 
-# Dual-Stage Two-phase Recurrent Neural Network
-# Cite: Liu, Y., Gong, C., Yang, L., & Chen, Y. (2020). DSTP-RNN: A dual-stage two-phase
-# attention-based recurrent neural network for long-term and multivariate time series 
-# prediction. Expert Systems with Applications, 143, 113082.
-# 
-# Code adapted from https://github.com/arleigh418/Paper-Implementation-DSTP-RNN-For-Stock-Prediction-Based-On-DA-RNN/blob/master/DSTP_RNN.py
-#
-# Converted from univariate time series regression to multivariate time series classification
-
-def dstp_rnn(
+# GeoMAN
+# Cite: Liang, Y., Ke, S., Zhang, J., Yi, X., & Zheng, Y. (2018, July). 
+# Geoman: Multi-level attention networks for geo-sensory time series prediction. 
+# In IJCAI (pp. 3428-3434).
+def GeoMAN(
     train_data: TrainData,
     test_data: TestData,
     n_targs: int,
@@ -41,8 +36,9 @@ def dstp_rnn(
     save_path: str = None,
     num_layers: int = 1,
     gru_lstm: bool = True,
-    parallel: bool = False
-) -> Tuple[dict, DtspRnnNet]:
+    local_attn: bool = True,
+    global_attn: bool = True
+) -> Tuple[dict, GeoMan]:
     """
     n_targs: The number of target columns (not steps)
     """
@@ -59,7 +55,8 @@ def dstp_rnn(
         "batch_size": batch_size,
         "num_layers": num_layers,
         "gru_lstm": gru_lstm,
-        "parallel": parallel
+        "local_attn": local_attn,
+        "global_attn": global_attn
     }
     encoder = Encoder(**enc_kwargs).to(device)
     with open(os.path.join(param_output_path, "enc_kwargs.json"), "w+") as fi:
@@ -73,7 +70,8 @@ def dstp_rnn(
         "out_feats": n_targs,
         "num_layers": num_layers,
         "gru_lstm": gru_lstm,
-        "parallel": parallel
+        "local_attn": local_attn,
+        "global_attn": global_attn
     }
     decoder = Decoder(**dec_kwargs).to(device)
     with open(os.path.join(param_output_path, "dec_kwargs.json"), "w+") as fi:
@@ -94,12 +92,12 @@ def dstp_rnn(
     decoder_optimizer = optim.Adam(
         params=[p for p in decoder.parameters() if p.requires_grad], lr=learning_rate
     )
-    dstp_net = DtspRnnNet(encoder, decoder, encoder_optimizer, decoder_optimizer)
-    return train_cfg, test_cfg, dstp_net
+    geoman_net = GeoMan(encoder, decoder, encoder_optimizer, decoder_optimizer)
+    return train_cfg, test_cfg, geoman_net
 
 
 def train(
-    net: DtspRnnNet,
+    net: GeoMan,
     train_data: TrainData,
     test_data: TestData,
     test_cfg: TestConfig,
@@ -253,7 +251,7 @@ def prep_train_data(batch_idx: np.ndarray, train_data: TrainData) -> Tuple:
     return feats, y_target
 
 
-def adjust_learning_rate(net: DtspRnnNet, n_iter: int) -> None:
+def adjust_learning_rate(net: GeoMan, n_iter: int) -> None:
     # TODO: Where did this Learning Rate adjustment schedule come from?
     # Should be modified to use Cosine Annealing with warm restarts
     # https://www.jeremyjordan.me/nn-learning-rate/
@@ -265,7 +263,7 @@ def adjust_learning_rate(net: DtspRnnNet, n_iter: int) -> None:
             dec_params["lr"] = dec_params["lr"] * 0.9
 
 
-def train_iteration(t_net: DtspRnnNet, loss_func: typing.Callable, X, y_target):
+def train_iteration(t_net: GeoMan, loss_func: typing.Callable, X, y_target):
     t_net.enc_opt.zero_grad()
     t_net.dec_opt.zero_grad()
     _, input_encoded = t_net.encoder(numpy_to_tvar(X))
@@ -283,7 +281,7 @@ def train_iteration(t_net: DtspRnnNet, loss_func: typing.Callable, X, y_target):
 
 
 def predict(
-    t_net: DtspRnnNet,
+    t_net: GeoMan,
     t_dat: TrainData,
     test: TestData,
     train_size: int,
@@ -301,7 +299,10 @@ def predict(
     n_iter = 0
     for y_i in range(0, len(y_pred), batch_size):
         n_iter += 1
-        print(f"Batch {n_iter} / {test_size // batch_size}")
+        if on_train:
+            print(f"Batch {n_iter} / {train_size // batch_size}")
+        else:
+            print(f"Batch {n_iter} / {test_size // batch_size}")
         y_slc = slice(y_i, y_i + batch_size)
         batch_idx = range(len(y_pred))[y_slc]
         b_len = len(batch_idx)

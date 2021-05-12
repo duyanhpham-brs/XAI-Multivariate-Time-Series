@@ -107,11 +107,11 @@ def train(
     iter_losses = np.zeros(n_epochs * iter_per_epoch)
     epoch_losses = np.zeros(n_epochs)
     n_iter = 0
-    batch = 0
 
     for e_i in range(n_epochs):
         net.model.train()
         perm_idx = np.random.permutation(t_cfg.train_size)
+        batch = 0
         for t_i in range(0, t_cfg.train_size, t_cfg.batch_size):
             batch_idx = perm_idx[t_i : (t_i + t_cfg.batch_size)]
             feats, y_target = prep_train_data(batch_idx, train_data)
