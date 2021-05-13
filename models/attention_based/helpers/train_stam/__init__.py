@@ -57,9 +57,7 @@ def stam(
         "time_length": train_data.feats.shape[-1],
         "hidden_size": encoder_hidden_size,
         "batch_size": batch_size,
-        "num_layers": num_layers,
         "gru_lstm": gru_lstm,
-        "parallel": parallel
     }
     encoder = Encoder(**enc_kwargs).to(device)
     with open(os.path.join(param_output_path, "enc_kwargs.json"), "w+") as fi:
@@ -67,13 +65,7 @@ def stam(
 
     dec_kwargs = {
         "encoder_hidden_size": encoder_hidden_size,
-        "decoder_hidden_size": decoder_hidden_size,
-        "input_size": train_data.feats.shape[1],
-        "time_length": train_data.feats.shape[-1],
         "out_feats": n_targs,
-        "num_layers": num_layers,
-        "gru_lstm": gru_lstm,
-        "parallel": parallel
     }
     decoder = Decoder(**dec_kwargs).to(device)
     with open(os.path.join(param_output_path, "dec_kwargs.json"), "w+") as fi:
@@ -253,7 +245,7 @@ def prep_train_data(batch_idx: np.ndarray, train_data: TrainData) -> Tuple:
     return feats, y_target
 
 
-def adjust_learning_rate(net: DtspRnnNet, n_iter: int) -> None:
+def adjust_learning_rate(net: STAM, n_iter: int) -> None:
     # TODO: Where did this Learning Rate adjustment schedule come from?
     # Should be modified to use Cosine Annealing with warm restarts
     # https://www.jeremyjordan.me/nn-learning-rate/
@@ -265,7 +257,7 @@ def adjust_learning_rate(net: DtspRnnNet, n_iter: int) -> None:
             dec_params["lr"] = dec_params["lr"] * 0.9
 
 
-def train_iteration(t_net: DtspRnnNet, loss_func: typing.Callable, X, y_target):
+def train_iteration(t_net: STAM, loss_func: typing.Callable, X, y_target):
     t_net.enc_opt.zero_grad()
     t_net.dec_opt.zero_grad()
     _, input_encoded = t_net.encoder(numpy_to_tvar(X))
