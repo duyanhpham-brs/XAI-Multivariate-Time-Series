@@ -30,6 +30,7 @@ class Encoder(nn.Module):
         time_length: int,
         hidden_size: int,
         batch_size: int,
+        spatial_emb_size: int = 100,
         gru_lstm: bool = True,
     ):
         """
@@ -42,6 +43,7 @@ class Encoder(nn.Module):
         self.batch_size = batch_size
         self.gru_lstm = gru_lstm
         self.time_length = time_length
+        self.spatial_emb_size = spatial_emb_size
         # Softmax fix
         self.relu = nn.ReLU()
         self.softmax = nn.Softmax(dim=1)
@@ -85,24 +87,29 @@ class Encoder(nn.Module):
                 batch_first=True,
             )
 
-        self.spatial_emb_converter = nn.Linear(
-            in_features=self.input_size, out_features=self.input_size
-        )
+        self.spatial_emb_converter = []
+        for _ in range(self.input_size):
+            self.spatial_emb_converter.append(
+                nn.Linear(
+                    in_features=self.time_length, out_features=self.spatial_emb_size
+                )
+            )
         self.spatial_attn_linear = nn.Linear(
-            in_features=self.hidden_size + 1, out_features=1
+            in_features=self.hidden_size + self.spatial_emb_size, out_features=1
         )
         self.spatial_attn_wrapper = nn.Linear(
-            in_features=self.input_size, out_features=1
+            in_features=self.spatial_emb_size, out_features=1
         )
 
         self.temporal_attn_linear = nn.Linear(
             in_features=self.hidden_size * 2, out_features=1
         )
         self.temporal_attn_wrapper = nn.Linear(
-            in_features=self.input_size * 2, out_features=1
+            in_features=self.hidden_size * 2, out_features=1
         )
 
     def forward(self, input_data: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        # print("Encoder started")
         # embedding hidden, cell size
         input_weighted = Variable(
             torch.zeros(1, self.batch_size, self.hidden_size * 2)
@@ -122,59 +129,83 @@ class Encoder(nn.Module):
         temp_hidden = init_hidden(input_data[:, :, 0], self.hidden_size, 1)
         temp_cell = init_hidden(input_data[:, :, 0], self.hidden_size, 1)
 
+        # Build spatial embeddings
+        spatial_emb = Variable(
+            torch.zeros(self.batch_size, self.input_size, self.spatial_emb_size)
+        ).to(device)
+        for size in range(self.input_size):
+            spatial_emb[:, size, :] = self.spatial_emb_converter[size](
+                input_data[:, size, :]
+            )
+
+        # Build temporal embeddings
+        temp_emb = []
         for i in range(self.time_length):
-            print(f"Step {i + 1} / {self.time_length}")
-            # Calculate spatial embeddings
-            spatial_emb = self.spatial_emb_converter(input_data[:, :, i])
-            # print(spatial_emb.size())
-            # Calculate spatial attention weights
-            x1 = torch.cat(
-                (
-                    spatial_emb.unsqueeze(2),
-                    spat_hidden.repeat(input_data.size(1), 1, 1).permute(1, 0, 2),
-                ),
-                dim=2,
-            )
-            # print(x1.size())
-            spatial_attn_weights = self.softmax(self.relu(self.spatial_attn_linear(x1)))
-            spatial_weighted_input = torch.mul(
-                spatial_attn_weights, input_data[:, :, i].unsqueeze(2)
-            ).view(self.batch_size, -1)
-            # print(spatial_weighted_input.size())
-            spatial_context = self.relu(
-                self.spatial_attn_wrapper(spatial_weighted_input)
-            )
-            # print(spatial_context.size(), input_weighted.size())
-            spatial_concat = torch.cat(
-                (
-                    spatial_context.T.unsqueeze(2),
-                    input_weighted,
-                ),
-                dim=2,
-            )
-            # print(spatial_concat.size())
-            self.spatial_rnn.flatten_parameters()
-            _, generic_states1 = self.spatial_rnn(
-                spatial_concat.permute(1, 0, 2), (spat_hidden, spat_cell)
-            )
-            spat_cell = generic_states1[1]
-            spat_hidden = generic_states1[0]
-
-            # print(spat_hidden.size())
-
-            # embedding hidden, cell size
-
             self.temporal_emb_converter.flatten_parameters()
             _, generic_states = self.temporal_emb_converter(
                 input_data[:, :, i].unsqueeze(2), (hidden_emb, cell_emb)
             )
             cell_emb = generic_states[1]
             hidden_emb = generic_states[0]
-            # print(hidden_emb.size(), temp_hidden.size())
+            temp_emb.append(hidden_emb)
+
+        spatial_weighted_input = 0
+        for size in range(self.input_size):
+            # print(spatial_emb[:,size].unsqueeze(1).size(), spat_hidden.repeat(spatial_emb.size(1), 1, 1).permute(1, 0, 2).size())
+            x1 = torch.cat(
+                (
+                    spat_hidden.permute(1, 0, 2),
+                    spatial_emb[:, size].unsqueeze(1),
+                ),
+                dim=2,
+            )
+            # print(x1.size())
+            spatial_attn_weights = self.softmax(
+                self.relu(self.spatial_attn_linear(x1))
+            )
+            # print(spatial_attn_weights.size(), spatial_emb[:,size].size())
+            spatial_weighted_input += torch.mul(
+                spatial_attn_weights, spatial_emb[:, size].unsqueeze(1)
+            ).view(self.batch_size, -1)
+        # print(spatial_weighted_input.size())
+        # print(spatial_weighted_input.size())
+        spatial_context = self.relu(
+            self.spatial_attn_wrapper(spatial_weighted_input)
+        )
+        # print(spatial_context.size(), input_weighted.size())
+        spatial_concat = torch.cat(
+            (
+                spatial_context.T.unsqueeze(2),
+                input_weighted,
+            ),
+            dim=2,
+        )
+
+        # print(f"Step {i + 1} / {self.time_length}")
+        # Calculate spatial embeddings
+
+        # print(spatial_emb.size())
+        # Calculate spatial attention weights
+
+        # print(spatial_concat.size())
+        self.spatial_rnn.flatten_parameters()
+        _, generic_states1 = self.spatial_rnn(
+            spatial_concat.permute(1, 0, 2), (spat_hidden, spat_cell)
+        )
+        spat_cell = generic_states1[1]
+        spat_hidden = generic_states1[0]
+
+        # print(spat_hidden.size())
+
+        # embedding hidden, cell size
+
+        # print(temp_emb[i].size(), temp_hidden.size())
+        temporal_weighted_input = 0
+        for i in range(self.time_length):
             x2 = torch.cat(
                 (
-                    hidden_emb,
-                    temp_hidden.repeat(hidden_emb.size(0), 1, 1).permute(1, 0, 2),
+                    temp_emb[i],
+                    temp_hidden.repeat(temp_emb[i].size(0), 1, 1),
                 ),
                 dim=2,
             )
@@ -190,36 +221,38 @@ class Encoder(nn.Module):
             #         input_data[:, :, i].unsqueeze(2),
             #     ).size()
             # )
-            temporal_weighted_input = torch.mul(
-                temporal_attn_weights.repeat(1, 1, input_data.size(1)).permute(0, 2, 1),
-                input_data[:, :, i].unsqueeze(2),
+            # print(temporal_attn_weights.size(), temp_emb[i].size())
+            temporal_weighted_input += torch.mul(
+                temporal_attn_weights,
+                temp_emb[i],
             ).reshape(self.batch_size, -1)
-            # print(temporal_weighted_input.size())
+        # print(temporal_weighted_input.size())
 
-            temporal_context = self.relu(
-                self.temporal_attn_wrapper(temporal_weighted_input)
-            )
-            # print(temporal_context.size())
-            temporal_concat = torch.cat(
-                (
-                    temporal_context.T.unsqueeze(2),
-                    input_weighted,
-                ),
-                dim=2,
-            )
-            # print(temporal_concat.size())
-            temporal_output = self.temporal_rnn(temporal_concat)
-            self.temporal_rnn.flatten_parameters()
-            _, generic_states2 = self.temporal_rnn(
-                temporal_concat.permute(1, 0, 2), (temp_hidden, temp_cell)
-            )
-            temp_cell = generic_states2[1]
-            temp_hidden = generic_states2[0]
-            # print(temp_hidden.size())
+        temporal_context = self.relu(
+            self.temporal_attn_wrapper(temporal_weighted_input)
+        )
+        # print(temporal_context.size())
+        temporal_concat = torch.cat(
+            (
+                temporal_context.T.unsqueeze(2),
+                input_weighted,
+            ),
+            dim=2,
+        )
+        # print(temporal_concat.size())
+        self.temporal_rnn.flatten_parameters()
+        _, generic_states2 = self.temporal_rnn(
+            temporal_concat.permute(1, 0, 2), (temp_hidden, temp_cell)
+        )
+        temp_cell = generic_states2[1]
+        temp_hidden = generic_states2[0]
+        # print(temp_hidden.size())
 
-            input_encoded = torch.cat((spat_hidden, temp_hidden), dim=2)
+        input_encoded = torch.cat((spat_hidden, temp_hidden), dim=2)
 
-            input_weighted = torch.cat((spat_cell, temp_cell), dim=2)
+        input_weighted = torch.cat((spat_cell, temp_cell), dim=2)
+
+            # print(input_encoded)
 
         # print(input_weighted.size())
 
@@ -241,7 +274,7 @@ class Decoder(nn.Module):
         self.fc_final.weight.data.normal_()
 
     def forward(
-        self, input_encoded: torch.Tensor, input_data: torch.Tensor
+        self, input_encoded: torch.Tensor
     ) -> torch.Tensor:
 
         # (batch_size, T, (2 * decoder_hidden_size + encoder_hidden_size))
@@ -250,6 +283,6 @@ class Decoder(nn.Module):
         #     cell.repeat(8, 1, 1).permute(1, 0, 2).size(),
         #     input_encoded.size(),
         # )
-        print("Decoder started")
+        # print("Decoder started")
 
         return self.fc_final(input_encoded.view(-1, self.encoder_hidden_size * 2))
