@@ -37,3 +37,5 @@ DtspRnnNet = collections.namedtuple(
 RetainNet = collections.namedtuple("RetainNet", ["model", "model_opt"])
 
 GeoMan = collections.namedtuple("GeoMan", ["encoder", "decoder", "enc_opt", "dec_opt"])
+
+STAM = collections.namedtuple("STAM", ["encoder", "decoder", "enc_opt", "dec_opt"])
