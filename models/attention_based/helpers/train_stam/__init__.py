@@ -65,6 +65,8 @@ def stam(
     dec_kwargs = {
         "time_length": train_data.feats.shape[-1],
         "encoder_hidden_size": encoder_hidden_size,
+        "batch_size": batch_size,
+        "input_size": train_data.feats.shape[1],
         "out_feats": n_targs,
     }
     decoder = Decoder(**dec_kwargs).to(device)
@@ -265,8 +267,8 @@ def adjust_learning_rate(net: STAM, n_iter: int) -> None:
 def train_iteration(t_net: STAM, loss_func: typing.Callable, X, y_target):
     t_net.enc_opt.zero_grad()
     t_net.dec_opt.zero_grad()
-    _, input_encoded = t_net.encoder(numpy_to_tvar(X))
-    y_pred = t_net.decoder(input_encoded)
+    spatial_emb, temp_emb = t_net.encoder(numpy_to_tvar(X))
+    y_pred = t_net.decoder(numpy_to_tvar(X), spatial_emb, temp_emb)
 
     y_true = numpy_to_tvar(y_target)
     # print(y_pred, y_true)
@@ -329,7 +331,7 @@ def predict(
         spatial_emb, temp_emb = t_net.encoder(numpy_to_tvar(X))
         # print(input_encoded.size(), y_target.size())
         y_pred[y_slc] = (
-            t_net.decoder(input_encoded).cpu().data.numpy()
+            t_net.decoder(numpy_to_tvar(X), spatial_emb, temp_emb).cpu().data.numpy()
         )
         # print(y_pred[y_slc])
 
