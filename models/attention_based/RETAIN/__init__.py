@@ -30,7 +30,9 @@ class RetainNN(nn.Module):
         visit_rnn_output_size: int,
         visit_attn_output_size: int,
         var_attn_output_size: int,
-        output_dropout_p: int,
+        output_dropout_p: float,
+        visit_level_dropout: float,
+        variable_level_dropout: float,
         embedding_output_size: int,
         num_class: int,
         dropout_p: float = 0.01,
@@ -81,8 +83,10 @@ class RetainNN(nn.Module):
         self.output_layer = nn.Linear(embedding_output_size, num_class)
 
         self.var_hidden_size = var_rnn_hidden_size
+        self.variable_level_dropout = nn.Dropout(variable_level_dropout)
 
         self.visit_hidden_size = visit_rnn_hidden_size
+        self.visit_level_dropout = nn.Dropout(visit_level_dropout)
 
         self.n_samples = batch_size
         self.reverse_rnn_feeding = reverse_rnn_feeding
@@ -113,7 +117,7 @@ class RetainNN(nn.Module):
         # num_layers(1)*num_directions(1)
         # batch: batch_size
         # hidden_size:
-        print("Visit Level started")
+        # print("Visit Level started")
         if self.reverse_rnn_feeding:
             self.visit_level_rnn.flatten_parameters()
             visit_rnn_output, visit_rnn_hidden = self.visit_level_rnn(
@@ -126,9 +130,9 @@ class RetainNN(nn.Module):
                 v, (visit_rnn_hidden, visit_rnn_hidden)
             )
             alpha = self.visit_level_attention(visit_rnn_output)
-        visit_attn_w = F.softmax(alpha, dim=0)
+        visit_attn_w = self.visit_level_dropout(F.softmax(alpha, dim=0))
 
-        print("Variable Level started")
+        # print("Variable Level started")
         if self.reverse_rnn_feeding:
             self.variable_level_rnn.flatten_parameters()
             var_rnn_output, var_rnn_hidden = self.variable_level_rnn(
@@ -141,7 +145,7 @@ class RetainNN(nn.Module):
                 v, (var_rnn_hidden, var_rnn_hidden)
             )
             beta = self.variable_level_attention(var_rnn_output)
-        var_attn_w = torch.tanh(beta)
+        var_attn_w = self.variable_level_dropout(torch.tanh(beta))
 
         # print("beta attn:")
         # '*' = hadamard product (element-wise product)
