@@ -40,7 +40,12 @@ def stam(
     save_path: str = None,
     num_layers: int = 1,
     gru_lstm: bool = True,
-    parallel: bool = False
+    parallel: bool = False,
+    spat_dropout: float = 0.2,
+    temp_dropout: float = 0.2,
+    spat_attn_dropout: float = 0.2,
+    temp_attn_dropout: float = 0.2,
+    out_dropout: float = 0.2,
 ) -> Tuple[dict, STAM]:
     """
     n_targs: The number of target columns (not steps)
@@ -57,6 +62,8 @@ def stam(
         "hidden_size": encoder_hidden_size,
         "batch_size": batch_size,
         "gru_lstm": gru_lstm,
+        "spat_dropout": spat_dropout,
+        "temp_dropout": temp_dropout,
     }
     encoder = Encoder(**enc_kwargs).to(device)
     with open(os.path.join(param_output_path, "enc_kwargs.json"), "w+") as fi:
@@ -68,18 +75,21 @@ def stam(
         "batch_size": batch_size,
         "input_size": train_data.feats.shape[1],
         "out_feats": n_targs,
+        "spat_attn_dropout": spat_attn_dropout,
+        "temp_attn_dropout": temp_attn_dropout,
+        "out_dropout": out_dropout,
     }
     decoder = Decoder(**dec_kwargs).to(device)
     with open(os.path.join(param_output_path, "dec_kwargs.json"), "w+") as fi:
-    if save_path:
-        # dir_path = os.path.dirname(os.path.realpath(__file__))
-        print("Resuming training from " + os.path.join(save_path, "encoder.pth"))
-        encoder.load_state_dict(
-            torch.load(os.path.join(save_path, "encoder.pth"), map_location=device)
-        )
-        decoder.load_state_dict(
-            torch.load(os.path.join(save_path, "decoder.pth"), map_location=device)
-        )
+        if save_path:
+            # dir_path = os.path.dirname(os.path.realpath(__file__))
+            print("Resuming training from " + os.path.join(save_path, "encoder.pth"))
+            encoder.load_state_dict(
+                torch.load(os.path.join(save_path, "encoder.pth"), map_location=device)
+            )
+            decoder.load_state_dict(
+                torch.load(os.path.join(save_path, "decoder.pth"), map_location=device)
+            )
 
     encoder_optimizer = optim.Adam(
         params=[p for p in encoder.parameters() if p.requires_grad], lr=learning_rate

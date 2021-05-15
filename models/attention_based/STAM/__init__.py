@@ -30,6 +30,8 @@ class Encoder(nn.Module):
         time_length: int,
         hidden_size: int,
         batch_size: int,
+        spat_dropout: float,
+        temp_dropout: float,
         spatial_emb_size: int = 100,
         gru_lstm: bool = True,
     ):
@@ -47,6 +49,9 @@ class Encoder(nn.Module):
         # Softmax fix
         self.relu = nn.ReLU()
         self.softmax = nn.Softmax(dim=1)
+
+        self.s_dropout = nn.Dropout(spat_dropout)
+        self.t_dropout = nn.Dropout(temp_dropout)
         # print(input_size, hidden_size)
         if gru_lstm:
             self.temporal_emb_converter = nn.LSTM(
@@ -84,9 +89,9 @@ class Encoder(nn.Module):
             torch.zeros(self.batch_size, self.input_size, self.spatial_emb_size)
         ).to(device)
         for size in range(self.input_size):
-            spatial_emb[:, size, :] = self.spatial_emb_converter[size](
+            spatial_emb[:, size, :] = self.s_dropout(self.spatial_emb_converter[size](
                 input_data[:, size, :]
-            )
+            ))
 
         # Build temporal embeddings
         temp_emb = []
@@ -95,8 +100,8 @@ class Encoder(nn.Module):
             _, generic_states = self.temporal_emb_converter(
                 input_data[:, :, i].unsqueeze(2), (hidden_emb, cell_emb)
             )
-            cell_emb = generic_states[1]
-            hidden_emb = generic_states[0]
+            cell_emb = self.t_dropout(generic_states[1])
+            hidden_emb = self.t_dropout(generic_states[0])
             temp_emb.append(hidden_emb)
 
             # print(input_encoded)
@@ -111,6 +116,9 @@ class Decoder(nn.Module):
         self,
         time_length,
         encoder_hidden_size,
+        spat_attn_dropout: float,
+        temp_attn_dropout: float,
+        out_dropout: float,
         input_size: int,
         batch_size: int,
         out_feats: int = 1,
@@ -125,6 +133,9 @@ class Decoder(nn.Module):
         self.input_size = input_size
         self.softmax = nn.Softmax(dim=1)
         self.relu = nn.ReLU()
+        self.s_attn_dropout = nn.Dropout(spat_attn_dropout)
+        self.t_attn_dropout = nn.Dropout(temp_attn_dropout)
+        self.o_dropout = nn.Dropout(out_dropout)
 
         if gru_lstm:
             self.spatial_rnn = nn.LSTM(
@@ -204,7 +215,7 @@ class Decoder(nn.Module):
                 dim=2,
             )
             # print(x1.size())
-            spatial_attn_weights = self.softmax(self.relu(self.spatial_attn_linear(x1)))
+            spatial_attn_weights = self.s_attn_dropout(self.softmax(self.relu(self.spatial_attn_linear(x1))))
             # print(spatial_attn_weights.size(), spatial_emb[:,size].size())
             spatial_weighted_input += torch.mul(
                 spatial_attn_weights, spatial_emb[:, size].unsqueeze(1)
@@ -250,9 +261,9 @@ class Decoder(nn.Module):
                 dim=2,
             )
 
-            temporal_attn_weights = self.softmax(
+            temporal_attn_weights = self.t_attn_dropout(self.softmax(
                 self.relu(self.temporal_attn_linear(x2))
-            )
+            ))
             # print(
             #     torch.mul(
             #         temporal_attn_weights.repeat(1, 1, input_data.size(1)).permute(
@@ -304,7 +315,7 @@ class Decoder(nn.Module):
         )
         # print(context.size())
         
-        y_tilde = self.fc(
+        y_tilde = self.o_dropout(self.fc(
             torch.cat(
                 (
                     context,
@@ -312,7 +323,7 @@ class Decoder(nn.Module):
                 ),
                 dim=2,
             )
-        )
+        ))
         
         # print(y_tilde.size())
         return self.fc_final(y_tilde.view(self.batch_size, -1))
