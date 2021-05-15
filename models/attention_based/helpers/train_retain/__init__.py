@@ -47,6 +47,8 @@ def retain_nn(
     param_output_path="",
     save_path: str = None,
     gru_lstm: bool = True,
+    visit_level_dropout: float = 0.3,
+    variable_level_dropout: float = 0.3,
     dropout_p: float = 0.01,
     output_dropout_p: float = 0.01,
     reverse_rnn_feeding: bool = True,
@@ -70,6 +72,8 @@ def retain_nn(
         "visit_rnn_hidden_size": visit_rnn_hidden_size,
         "visit_attn_output_size": visit_attn_output_size,
         "visit_rnn_output_size": visit_rnn_output_size,
+        "visit_level_dropout": visit_level_dropout,
+        "variable_level_dropout": variable_level_dropout,
         "output_dropout_p": output_dropout_p,
         "embedding_output_size": embedding_output_size,
         "num_class": n_targs,
@@ -112,12 +116,15 @@ def train(
         net.model.train()
         perm_idx = np.random.permutation(t_cfg.train_size)
         batch = 0
+        print("--------------------Training-------------------------")
+        print(f"Batch {batch+1} / {t_cfg.train_size // t_cfg.batch_size}")
         for t_i in range(0, t_cfg.train_size, t_cfg.batch_size):
             batch_idx = perm_idx[t_i : (t_i + t_cfg.batch_size)]
             feats, y_target = prep_train_data(batch_idx, train_data)
             batch += 1
             if len(feats) > 0 and len(y_target) > 0:
-                print(f"Batch {batch} / {t_cfg.train_size // t_cfg.batch_size}")
+                if batch % ((t_cfg.train_size // t_cfg.batch_size) // 4) == 0:
+                    print(f"Batch {batch} / {t_cfg.train_size // t_cfg.batch_size}")
                 loss = train_iteration(net, t_cfg.loss_func, feats, y_target)
                 iter_losses[e_i * iter_per_epoch + t_i // t_cfg.batch_size] = loss
                 n_iter += 1
@@ -128,6 +135,8 @@ def train(
         )
 
         if e_i % 1 == 0:
+            net.model.eval()
+            print("--------------------Calculating Test Acc-------------------------")
             y_test_pred = predict(
                 net,
                 train_data,
@@ -178,6 +187,8 @@ def train(
                 torch.tensor(test_data.targs.reshape(-1)),
             ).numpy()
 
+            net.model.eval()
+            print("--------------------Calculating Train Acc-------------------------")
             y_train_pred = predict(
                 net,
                 train_data,
@@ -282,9 +293,15 @@ def predict(
         y_pred = np.zeros((test_size, out_size))
 
     n_iter = 0
+    print("Batch 1")
     for y_i in range(0, len(y_pred), batch_size):
         n_iter += 1
-        print(f"Batch {n_iter} / {test_size // batch_size}")
+        if on_train:
+            if n_iter % ((train_size // batch_size) // 4) == 0:
+                print(f"Batch {n_iter} / {train_size // batch_size}")
+        else:
+            if n_iter % ((test_size // batch_size) // 4) == 0:
+                print(f"Batch {n_iter} / {test_size // batch_size}")
         y_slc = slice(y_i, y_i + batch_size)
         batch_idx = range(len(y_pred))[y_slc]
         b_len = len(batch_idx)
