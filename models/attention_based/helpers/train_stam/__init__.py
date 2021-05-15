@@ -41,11 +41,11 @@ def stam(
     num_layers: int = 1,
     gru_lstm: bool = True,
     parallel: bool = False,
-    spat_dropout: float = 0.2,
-    temp_dropout: float = 0.2,
-    spat_attn_dropout: float = 0.2,
-    temp_attn_dropout: float = 0.2,
-    out_dropout: float = 0.2,
+    spat_dropout: float = 0.4,
+    temp_dropout: float = 0.4,
+    spat_attn_dropout: float = 0.4,
+    temp_attn_dropout: float = 0.4,
+    out_dropout: float = 0.4,
 ) -> Tuple[dict, STAM]:
     """
     n_targs: The number of target columns (not steps)
