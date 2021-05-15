@@ -30,6 +30,7 @@ class Encoder(nn.Module):
         time_length: int,
         hidden_size: int,
         batch_size: int,
+        spat_attn_dropout: float,
         gru_lstm: bool = True,
         num_layers: int = 1,
     ):
@@ -45,6 +46,7 @@ class Encoder(nn.Module):
         self.num_layers = num_layers
         # Softmax fix
         self.softmax = nn.Softmax(dim=1)
+        self.spat_attn_dropout = nn.Dropout(spat_attn_dropout)
         # print(input_size, hidden_size)
         if gru_lstm:
             self.lstm_layer = nn.LSTM(
@@ -85,7 +87,7 @@ class Encoder(nn.Module):
         #     cell.repeat(self.input_size, 1, 1).permute(1, 0, 2).size(),
         #     input_data.size(),
         # )
-        print("Encoder started")
+        # print("Encoder started")
         # Eqn. 8: concatenate the hidden states with each predictor
         x = torch.cat(
             (
@@ -103,7 +105,7 @@ class Encoder(nn.Module):
         # Eqn. 9: Softmax the attention weights
         # Had to replace functional with generic Softmax
         # (batch_size, input_size)
-        attn_weights = self.softmax(x.view(-1, self.batch_size))
+        attn_weights = self.spat_attn_dropout(self.softmax(x.view(-1, self.batch_size)))
         # Eqn. 10: LSTM
         # (batch_size, input_size)
         # print(attn_weights.T.unsqueeze(2).size(), input_data.size())
@@ -120,9 +122,7 @@ class Encoder(nn.Module):
             hidden = generic_states[0]
         else:
             self.gru_layer.flatten_parameters()
-            __, generic_states = self.gru_layer(
-                weighted_input.permute(0, 2, 1), hidden
-            )
+            __, generic_states = self.gru_layer(weighted_input.permute(0, 2, 1), hidden)
             hidden = generic_states[0].unsqueeze(0)
 
             # Save output
@@ -139,6 +139,8 @@ class Decoder(nn.Module):
         decoder_hidden_size: int,
         input_size: int,
         time_length: int,
+        temp_attn_dropout: float,
+        out_dropout: float,
         out_feats=1,
         gru_lstm: bool = True,
         num_layers: int = 1,
@@ -148,6 +150,8 @@ class Decoder(nn.Module):
         self.decoder_hidden_size = decoder_hidden_size
         self.input_size = input_size
         self.num_layers = num_layers
+        self.temp_attn_dropout = nn.Dropout(temp_attn_dropout)
+        self.out_dropout = nn.Dropout(out_dropout)
 
         self.attn_layer = nn.Sequential(
             nn.Linear(
@@ -175,7 +179,9 @@ class Decoder(nn.Module):
         self.fc = nn.Linear(encoder_hidden_size + time_length, out_feats)
 
         fc_final_out_feats = out_feats
-        self.fc_final = nn.Linear(decoder_hidden_size + encoder_hidden_size, fc_final_out_feats)
+        self.fc_final = nn.Linear(
+            decoder_hidden_size + encoder_hidden_size, fc_final_out_feats
+        )
 
         self.fc.weight.data.normal_()
 
@@ -188,7 +194,7 @@ class Decoder(nn.Module):
         context = Variable(torch.zeros(input_encoded.size(0), self.encoder_hidden_size))
 
         # (batch_size, T, (2 * decoder_hidden_size + encoder_hidden_size))
-        print("Decoder started")
+        # print("Decoder started")
         # print(
         #     hidden.repeat(input_encoded.size(1), 1, 1).permute(1, 0, 2).size(),
         #     cell.repeat(input_encoded.size(1), 1, 1).permute(1, 0, 2).size(),
@@ -205,10 +211,12 @@ class Decoder(nn.Module):
         # print(x.size())
         # Eqn. 12 & 13: softmax on the computed attention weights
         # Had to replace functional with generic Softmax
-        x = self.softmax(
-            self.attn_layer(
-                x.view(-1, 2 * self.decoder_hidden_size + self.encoder_hidden_size)
-            ).view(-1, 1)
+        x = self.temp_attn_dropout(
+            self.softmax(
+                self.attn_layer(
+                    x.view(-1, 2 * self.decoder_hidden_size + self.encoder_hidden_size)
+                ).view(-1, 1)
+            )
         )  # (batch_size, T - 1)
 
         # Eqn. 14: compute context vector
@@ -217,7 +225,9 @@ class Decoder(nn.Module):
         #     input_encoded.view(-1, 1, self.decoder_hidden_size).size(),
         #     # torch.bmm(x.unsqueeze(1), input_encoded).size(),
         # )
-        context = torch.bmm(x.unsqueeze(1), input_encoded.view(-1, 1, self.decoder_hidden_size))
+        context = torch.bmm(
+            x.unsqueeze(1), input_encoded.view(-1, 1, self.decoder_hidden_size)
+        )
 
         # Eqn. 15
         # (batch_size, out_size)
@@ -226,13 +236,15 @@ class Decoder(nn.Module):
         #     input_data[:, :, i].unsqueeze(2).size(),
         #     context.repeat(1, input_data.size(1), 1).size(),
         # )
-        y_tilde = self.fc(
-            torch.cat(
-                (
-                    context.repeat(1, input_data.size(1), 1),
-                    input_data,
-                ),
-                dim=2,
+        y_tilde = self.out_dropout(
+            self.fc(
+                torch.cat(
+                    (
+                        context.repeat(1, input_data.size(1), 1),
+                        input_data,
+                    ),
+                    dim=2,
+                )
             )
         )
         # print(y_tilde.size())
@@ -266,6 +278,10 @@ class Decoder(nn.Module):
         # )
         return self.fc_final(
             torch.cat(
-                (hidden[0].unsqueeze(0), context.view(context.size(1),context.size(0),-1)), dim=2
+                (
+                    hidden[0].unsqueeze(0),
+                    context.view(context.size(1), context.size(0), -1),
+                ),
+                dim=2,
             ).view(-1, self.decoder_hidden_size + self.encoder_hidden_size)
         )
