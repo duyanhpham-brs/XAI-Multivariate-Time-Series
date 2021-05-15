@@ -42,6 +42,9 @@ def da_rnn(
     save_path: str = None,
     num_layers: int = 1,
     gru_lstm: bool = True,
+    spat_attn_dropout: float = 0.4,
+    temp_attn_dropout: float = 0.4,
+    out_dropout: float = 0.4
 ) -> Tuple[dict, DaRnnNet]:
     """
     n_targs: The number of target columns (not steps)
@@ -59,6 +62,7 @@ def da_rnn(
         "batch_size": batch_size,
         "num_layers": num_layers,
         "gru_lstm": gru_lstm,
+        "spat_attn_dropout": spat_attn_dropout
     }
     encoder = Encoder(**enc_kwargs).to(device)
     with open(os.path.join(param_output_path, "enc_kwargs.json"), "w+") as fi:
@@ -72,6 +76,8 @@ def da_rnn(
         "out_feats": n_targs,
         "num_layers": num_layers,
         "gru_lstm": gru_lstm,
+        "temp_attn_dropout": temp_attn_dropout,
+        "out_dropout": out_dropout
     }
     decoder = Decoder(**dec_kwargs).to(device)
     with open(os.path.join(param_output_path, "dec_kwargs.json"), "w+") as fi:
@@ -115,12 +121,15 @@ def train(
         net.decoder.train()
         perm_idx = np.random.permutation(t_cfg.train_size)
         batch = 0
+        print("--------------------Training-------------------------")
+        print(f"Batch {batch+1} / {t_cfg.train_size // t_cfg.batch_size}")
         for t_i in range(0, t_cfg.train_size, t_cfg.batch_size):
             batch_idx = perm_idx[t_i : (t_i + t_cfg.batch_size)]
             feats, y_target = prep_train_data(batch_idx, train_data)
             batch += 1
             if len(feats) > 0 and len(y_target) > 0:
-                print(f"Batch {batch} / {t_cfg.train_size // t_cfg.batch_size}")
+                if batch % ((t_cfg.train_size // t_cfg.batch_size) // 4) == 0:
+                    print(f"Batch {batch} / {t_cfg.train_size // t_cfg.batch_size}")
                 # print(feats.shape, y_target.shape)
                 loss = train_iteration(net, t_cfg.loss_func, feats, y_target)
                 iter_losses[e_i * iter_per_epoch + t_i // t_cfg.batch_size] = loss
@@ -134,6 +143,7 @@ def train(
         if e_i % 1 == 0:
             net.encoder.eval()
             net.decoder.eval()
+            print("--------------------Calculating Test Acc-------------------------")
             y_test_pred = predict(
                 net,
                 train_data,
@@ -186,6 +196,7 @@ def train(
 
             net.encoder.eval()
             net.decoder.eval()
+            print("--------------------Calculating Train Acc-------------------------")
             y_train_pred = predict(
                 net,
                 train_data,
@@ -297,9 +308,15 @@ def predict(
         y_pred = np.zeros((test_size, out_size))
 
     n_iter = 0
+    print("Batch 1")
     for y_i in range(0, len(y_pred), batch_size):
         n_iter += 1
-        print(f"Batch {n_iter} / {test_size // batch_size}")
+        if on_train:
+            if n_iter % ((train_size // batch_size) // 4) == 0:
+                print(f"Batch {n_iter} / {train_size // batch_size}")
+        else:
+            if n_iter % ((test_size // batch_size) // 4) == 0:
+                print(f"Batch {n_iter} / {test_size // batch_size}")
         y_slc = slice(y_i, y_i + batch_size)
         batch_idx = range(len(y_pred))[y_slc]
         b_len = len(batch_idx)
