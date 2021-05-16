@@ -30,6 +30,9 @@ class Encoder(nn.Module):
         time_length: int,
         hidden_size: int,
         batch_size: int,
+        spatial_attn_dropout11: float,
+        spatial_attn_dropout12: float,
+        spatial_attn_dropout2: float,
         gru_lstm: bool = True,
         num_layers: int = 1,
         parallel: bool = False,
@@ -45,6 +48,9 @@ class Encoder(nn.Module):
         self.gru_lstm = gru_lstm
         self.num_layers = num_layers
         self.parallel = parallel
+        self.spatial_attn_dropout11 = nn.Dropout(spatial_attn_dropout11)
+        self.spatial_attn_dropout12 = nn.Dropout(spatial_attn_dropout12)
+        self.spatial_attn_dropout2 = nn.Dropout(spatial_attn_dropout2)
         # Softmax fix
         self.softmax = nn.Softmax(dim=1)
         # print(input_size, hidden_size)
@@ -154,7 +160,7 @@ class Encoder(nn.Module):
 
         # Phase one encoder attention of DSTP-RNN
         # Eqn. 8: concatenate the hidden states with each predictor
-        print("Encoder started")
+        # print("Encoder started")
         x1 = torch.cat(
             (
                 hidden1.repeat(input_data.size(1), 1, 1).permute(1, 0, 2),
@@ -171,7 +177,7 @@ class Encoder(nn.Module):
         # Eqn. 9: Softmax the attention weights
         # Had to replace functional with generic Softmax
         # (batch_size, input_size)
-        alpha1 = self.softmax(x1.view(-1, self.batch_size))
+        alpha1 = self.spatial_attn_dropout11(self.softmax(x1.view(-1, self.batch_size)))
         # Eqn. 10: LSTM
         # (batch_size, input_size)
 
@@ -214,7 +220,7 @@ class Encoder(nn.Module):
             # Eqn. 9: Softmax the attention weights
             # Had to replace functional with generic Softmax
             # (batch_size, input_size)
-            alpha3 = self.softmax(x1.view(-1, self.batch_size))
+            alpha3 = self.spatial_attn_dropout12(self.softmax(x1.view(-1, self.batch_size)))
             # Eqn. 10: LSTM
             # (batch_size, input_size)
 
@@ -270,7 +276,7 @@ class Encoder(nn.Module):
                 x2.view(-1, self.hidden_size * 2 + 2 * input_data.size(-1))
             )
 
-        alpha2 = self.softmax(x2.view(-1, self.input_size))
+        alpha2 = self.spatial_attn_dropout2(self.softmax(x2.view(-1, self.input_size)))
         if self.parallel:
             weighted_input = torch.cat((weighted_input1, weighted_input3), dim=2)
             weighted_input2 = torch.mul(alpha2.unsqueeze(2), weighted_input)
@@ -303,6 +309,8 @@ class Decoder(nn.Module):
         self,
         encoder_hidden_size: int,
         decoder_hidden_size: int,
+        temporal_attn_dropout: float,
+        out_dropout: float,
         input_size: int,
         time_length: int,
         out_feats=1,
@@ -313,6 +321,8 @@ class Decoder(nn.Module):
         super().__init__()
         self.encoder_hidden_size = encoder_hidden_size
         self.decoder_hidden_size = decoder_hidden_size
+        self.temporal_attn_dropout = nn.Dropout(temporal_attn_dropout)
+        self.out_dropout = nn.Dropout(out_dropout)
         self.input_size = input_size
         self.num_layers = num_layers
         self.parallel = parallel
@@ -363,7 +373,7 @@ class Decoder(nn.Module):
         #     cell.repeat(8, 1, 1).permute(1, 0, 2).size(),
         #     input_encoded.size(),
         # )
-        print("Decoder started")
+        # print("Decoder started")
         x = torch.cat(
             (
                 hidden.repeat(input_encoded.size(1), 1, 1).permute(1, 0, 2),
@@ -375,11 +385,11 @@ class Decoder(nn.Module):
         # print(x.size())
         # Eqn. 12 & 13: softmax on the computed attention weights
         # Had to replace functional with generic Softmax
-        x = self.softmax(
+        x = self.temporal_attn_dropout(self.softmax(
             self.attn_layer(
                 x.view(-1, 2 * self.decoder_hidden_size + self.encoder_hidden_size)
             ).view(-1, self.input_size - 1)
-        )  # (batch_size, T - 1)
+        ))  # (batch_size, T - 1)
 
         # Eqn. 14: compute context vector
         # print(
@@ -396,7 +406,7 @@ class Decoder(nn.Module):
         #     input_data.size(),
         #     context.repeat(input_encoded.size(1), input_data.size(1), 1).size(),
         # )
-        y_tilde = self.fc(
+        y_tilde = self.out_dropout(self.fc(
             torch.cat(
                 (
                     context.repeat(input_encoded.size(1), input_data.size(1), 1),
@@ -404,7 +414,7 @@ class Decoder(nn.Module):
                 ),
                 dim=2,
             )
-        )
+        ))
         # Eqn. 16: LSTM
         # print(y_tilde.size())
         if self.gru_lstm:
