@@ -28,6 +28,10 @@ def GeoMAN(
     train_data: TrainData,
     test_data: TestData,
     n_targs: int,
+    local_attn_dropout: float = 0.3,
+    global_attn_dropout: float = 0.3,
+    temp_attn_dropout: float = 0.3,
+    output_dropout: float = 0.3,
     encoder_hidden_size=64,
     decoder_hidden_size=64,
     learning_rate=0.0001,
@@ -56,7 +60,9 @@ def GeoMAN(
         "num_layers": num_layers,
         "gru_lstm": gru_lstm,
         "local_attn": local_attn,
-        "global_attn": global_attn
+        "global_attn": global_attn,
+        "local_attn_dropout": local_attn_dropout,
+        "global_attn_dropout": global_attn_dropout
     }
     encoder = Encoder(**enc_kwargs).to(device)
     with open(os.path.join(param_output_path, "enc_kwargs.json"), "w+") as fi:
@@ -65,6 +71,8 @@ def GeoMAN(
     dec_kwargs = {
         "encoder_hidden_size": encoder_hidden_size,
         "decoder_hidden_size": decoder_hidden_size,
+        "temp_attn_dropout": temp_attn_dropout,
+        "output_dropout": output_dropout,
         "input_size": train_data.feats.shape[1],
         "time_length": train_data.feats.shape[-1],
         "out_feats": n_targs,
@@ -115,12 +123,15 @@ def train(
         net.decoder.train()
         perm_idx = np.random.permutation(t_cfg.train_size)
         batch = 0
+        print("--------------------Training-------------------------")
+        print(f"Batch {batch+1} / {t_cfg.train_size // t_cfg.batch_size}")
         for t_i in range(0, t_cfg.train_size, t_cfg.batch_size):
             batch_idx = perm_idx[t_i : (t_i + t_cfg.batch_size)]
             feats, y_target = prep_train_data(batch_idx, train_data)
             batch += 1
             if len(feats) > 0 and len(y_target) > 0:
-                print(f"Batch {batch} / {t_cfg.train_size // t_cfg.batch_size}")
+                if batch % ((t_cfg.train_size // t_cfg.batch_size) // 4) == 0:
+                    print(f"Batch {batch} / {t_cfg.train_size // t_cfg.batch_size}")
                 # print(feats.shape, y_target.shape)
                 loss = train_iteration(net, t_cfg.loss_func, feats, y_target)
                 iter_losses[e_i * iter_per_epoch + t_i // t_cfg.batch_size] = loss
@@ -134,6 +145,7 @@ def train(
         if e_i % 1 == 0:
             net.encoder.eval()
             net.decoder.eval()
+            print("--------------------Calculating Test Acc-------------------------")
             y_test_pred = predict(
                 net,
                 train_data,
@@ -186,6 +198,7 @@ def train(
 
             net.encoder.eval()
             net.decoder.eval()
+            print("--------------------Calculating Train Acc-------------------------")
             y_train_pred = predict(
                 net,
                 train_data,
@@ -297,12 +310,15 @@ def predict(
         y_pred = np.zeros((test_size, out_size))
 
     n_iter = 0
+    print("Batch 1")
     for y_i in range(0, len(y_pred), batch_size):
         n_iter += 1
         if on_train:
-            print(f"Batch {n_iter} / {train_size // batch_size}")
+            if n_iter % ((train_size // batch_size) // 4) == 0:
+                print(f"Batch {n_iter} / {train_size // batch_size}")
         else:
-            print(f"Batch {n_iter} / {test_size // batch_size}")
+            if n_iter % ((test_size // batch_size) // 4) == 0:
+                print(f"Batch {n_iter} / {test_size // batch_size}")
         y_slc = slice(y_i, y_i + batch_size)
         batch_idx = range(len(y_pred))[y_slc]
         b_len = len(batch_idx)

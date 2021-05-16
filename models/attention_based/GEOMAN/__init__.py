@@ -24,6 +24,8 @@ class Encoder(nn.Module):
         time_length: int,
         hidden_size: int,
         batch_size: int,
+        local_attn_dropout: float,
+        global_attn_dropout: float,
         gru_lstm: bool = True,
         num_layers: int = 1,
         local_attn: bool = True,
@@ -41,6 +43,8 @@ class Encoder(nn.Module):
         self.num_layers = num_layers
         self.local_attn = local_attn
         self.global_attn = global_attn
+        self.local_attn_dropout = nn.Dropout(local_attn_dropout)
+        self.global_attn_dropout = nn.Dropout(global_attn_dropout)
         # Softmax fix
         self.softmax = nn.Softmax(dim=1)
         # print(input_size, hidden_size)
@@ -103,7 +107,7 @@ class Encoder(nn.Module):
         #     cell.repeat(self.input_size, 1, 1).permute(1, 0, 2).size(),
         #     input_data.size(),
         # )
-        print("Encoder started")
+        # print("Encoder started")
         # Eqn. 8: concatenate the hidden states with each predictor
         if self.local_attn:
             local_total_attn = []
@@ -124,7 +128,7 @@ class Encoder(nn.Module):
                 # Eqn. 9: Softmax the attention weights
                 # Had to replace functional with generic Softmax
                 # (batch_size, input_size)
-                local_attn_weights = self.softmax(x.view(-1, self.batch_size))
+                local_attn_weights = self.local_attn_dropout(self.softmax(x.view(-1, self.batch_size)))
                 local_total_attn.append(local_attn_weights)
             local_total_attn = torch.cat(local_total_attn, dim=0)
             local_weighted_input = torch.mul(
@@ -149,7 +153,7 @@ class Encoder(nn.Module):
             # Eqn. 9: Softmax the attention weights
             # Had to replace functional with generic Softmax
             # (batch_size, input_size)
-            global_attn_weights = self.softmax(x.view(-1, self.batch_size))
+            global_attn_weights = self.global_attn_dropout(self.softmax(x.view(-1, self.batch_size)))
             global_weighted_input = torch.mul(
                 global_attn_weights.T.unsqueeze(2), input_data
             )
@@ -202,6 +206,8 @@ class Decoder(nn.Module):
         decoder_hidden_size: int,
         input_size: int,
         time_length: int,
+        temp_attn_dropout: float,
+        output_dropout: float,
         out_feats=1,
         gru_lstm: bool = True,
         num_layers: int = 1,
@@ -215,6 +221,8 @@ class Decoder(nn.Module):
         self.num_layers = num_layers
         self.local_attn = local_attn
         self.global_attn = global_attn
+        self.temp_attn_dropout = nn.Dropout(temp_attn_dropout)
+        self.output_dropout = nn.Dropout(output_dropout)
 
         self.attn_layer = nn.Sequential(
             nn.Linear(
@@ -264,7 +272,7 @@ class Decoder(nn.Module):
         context = Variable(torch.zeros(input_encoded.size(0), self.encoder_hidden_size))
 
         # (batch_size, T, (2 * decoder_hidden_size + encoder_hidden_size))
-        print("Decoder started")
+        # print("Decoder started")
         # print(
         #     hidden.repeat(input_encoded.size(1), 1, 1).permute(1, 0, 2).size(),
         #     cell.repeat(input_encoded.size(1), 1, 1).permute(1, 0, 2).size(),
@@ -281,11 +289,11 @@ class Decoder(nn.Module):
         # print(x.size())
         # Eqn. 12 & 13: softmax on the computed attention weights
         # Had to replace functional with generic Softmax
-        x = self.softmax(
+        x = self.temp_attn_dropout(self.softmax(
             self.attn_layer(
                 x.view(-1, 2 * self.decoder_hidden_size + self.encoder_hidden_size)
             ).view(-1, 1)
-        )  # (batch_size, T - 1)
+        ))  # (batch_size, T - 1)
 
         # Eqn. 14: compute context vector
         # print(
@@ -304,7 +312,7 @@ class Decoder(nn.Module):
         #     input_data.size(),
         #     context.repeat(1, input_data.size(1), 1).size(),
         # )
-        y_tilde = self.fc(
+        y_tilde = self.output_dropout(self.fc(
             torch.cat(
                 (
                     context.repeat(1, input_data.size(1), 1).view(
@@ -314,7 +322,7 @@ class Decoder(nn.Module):
                 ),
                 dim=2,
             )
-        )
+        ))
         # print(y_tilde.size())
         # Eqn. 16: LSTM
         if self.gru_lstm:
