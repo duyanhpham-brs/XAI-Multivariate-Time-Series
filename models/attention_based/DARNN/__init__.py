@@ -70,10 +70,10 @@ class Encoder(nn.Module):
         # input_data: (batch_size, T - 1, input_size)
         # print(input_data.size())
         input_weighted = Variable(
-            torch.zeros(self.batch_size, self.input_size, input_data.size(1))
+            torch.zeros(input_data.size(0), self.input_size, input_data.size(1))
         ).to(device)
         input_encoded = Variable(
-            torch.zeros(self.batch_size, self.input_size, self.hidden_size)
+            torch.zeros(input_data.size(0), self.input_size, self.hidden_size)
         ).to(device)
 
         # hidden, cell: initial states with dimension hidden_size
@@ -105,7 +105,7 @@ class Encoder(nn.Module):
         # Eqn. 9: Softmax the attention weights
         # Had to replace functional with generic Softmax
         # (batch_size, input_size)
-        attn_weights = self.spat_attn_dropout(self.softmax(x.view(-1, self.batch_size)))
+        attn_weights = self.spat_attn_dropout(self.softmax(x.view(-1, input_data.size(0))))
         # Eqn. 10: LSTM
         # (batch_size, input_size)
         # print(attn_weights.T.unsqueeze(2).size(), input_data.size())
@@ -284,4 +284,4 @@ class Decoder(nn.Module):
                 ),
                 dim=2,
             ).view(-1, self.decoder_hidden_size + self.encoder_hidden_size)
-        )
+        ), context
