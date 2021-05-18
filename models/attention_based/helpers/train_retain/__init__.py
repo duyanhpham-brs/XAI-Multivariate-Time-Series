@@ -262,10 +262,9 @@ def adjust_learning_rate(net: RetainNet, n_iter: int) -> None:
 
 def train_iteration(t_net: RetainNet, loss_func: typing.Callable, X, y_target):
     t_net.model_opt.zero_grad()
-    var_rnn_hidden_init, visit_rnn_hidden_init = t_net.model.init_hidden(X.shape[0])
-    y_pred, var_rnn_hidden_init, visit_rnn_hidden_init = t_net.model(
-        numpy_to_tvar(X), var_rnn_hidden_init, visit_rnn_hidden_init
-    )
+    y_pred = t_net.model(
+        numpy_to_tvar(X)
+    )[0]
 
     y_true = numpy_to_tvar(y_target)
     loss = loss_func(y_pred, y_true.view(-1).long())
@@ -322,9 +321,8 @@ def predict(
 
         y_target = numpy_to_tvar(y_target)
         # print(input_encoded.size(), y_target.size())
-        var_rnn_hidden_init, visit_rnn_hidden_init = t_net.model.init_hidden(batch_size)
         y_pred[y_slc] = (
-            t_net.model(numpy_to_tvar(X), var_rnn_hidden_init, visit_rnn_hidden_init)[0]
+            t_net.model(numpy_to_tvar(X))[0]
             .cpu()
             .data.numpy()
         )

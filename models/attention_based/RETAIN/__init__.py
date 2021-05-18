@@ -91,11 +91,9 @@ class RetainNN(nn.Module):
         self.n_samples = batch_size
         self.reverse_rnn_feeding = reverse_rnn_feeding
 
-    def forward(self, input_data, var_rnn_hidden, visit_rnn_hidden):
+    def forward(self, input_data):
         """
         :param input_data:
-        :param var_rnn_hidden:
-        :param visit_rnn_hidden:
         :return:
         """
         # emb_layer: input(*): LongTensor of arbitrary shape containing the indices to extract
@@ -118,6 +116,7 @@ class RetainNN(nn.Module):
         # batch: batch_size
         # hidden_size:
         # print("Visit Level started")
+        var_rnn_hidden, visit_rnn_hidden = self.init_hidden(input_data.size(0))
         if self.reverse_rnn_feeding:
             self.visit_level_rnn.flatten_parameters()
             visit_rnn_output, visit_rnn_hidden = self.visit_level_rnn(
@@ -162,7 +161,7 @@ class RetainNN(nn.Module):
         # print("output:")
         # print(output.shape)
 
-        return output, var_rnn_hidden, visit_rnn_hidden
+        return output, alpha, beta
 
     def init_hidden(self, current_batch_size):
         return (

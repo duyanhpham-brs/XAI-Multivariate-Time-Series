@@ -128,6 +128,7 @@ class CAMFeatureMaps:
                         cmap="jet",
                         s=7,
                     )
+                    plt.text(0.05, data.T[0, j]+0.05, str(j), fontsize=10)
             else:
                 for j in range(self.data.T.shape[1]):
                     plt.scatter(
@@ -137,6 +138,7 @@ class CAMFeatureMaps:
                         cmap="jet",
                         s=7,
                     )
+                    plt.text(0.05, data.T[0, j]+0.05, str(j), fontsize=10)
         else:
             for j in range(self.data.T.shape[1]):
                 plt.scatter(
@@ -146,5 +148,43 @@ class CAMFeatureMaps:
                     cmap="jet",
                     s=7,
                 )
+                plt.text(0.05, data.T[0, j]+0.05, str(j), fontsize=10)
 
         plt.show()
+
+def map_activation_to_input(mask, data):
+    plt.plot(data.T, c="black", alpha=0.2)
+
+    if len(mask.shape) > 1:
+        if mask.shape[1] > 1:
+            for j in range(data.T.shape[1]):
+                plt.scatter(
+                    np.arange(0, data.T.shape[0], 1),
+                    data.T[:, j],
+                    c=mask[:, j],
+                    cmap="jet",
+                    s=7,
+                )
+                plt.text(0.05, data.T[0, j]+0.05, str(j), fontsize=10)
+        else:
+            for j in range(data.T.shape[1]):
+                plt.scatter(
+                    np.arange(0, data.T.shape[0], 1),
+                    data.T[:, j],
+                    c=mask[:, 0],
+                    cmap="jet",
+                    s=7,
+                )
+                plt.text(0.05, data.T[0, j]+0.05, str(j), fontsize=10)
+    else:
+        for j in range(data.T.shape[1]):
+            plt.scatter(
+                np.arange(0, data.T.shape[0], 1),
+                data.T[:, j],
+                c=mask,
+                cmap="jet",
+                s=7,
+            )
+            plt.text(0.05, data.T[0, j]+0.05, str(j), fontsize=10)
+
+    plt.show()
