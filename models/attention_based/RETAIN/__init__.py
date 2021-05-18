@@ -161,7 +161,7 @@ class RetainNN(nn.Module):
         # print("output:")
         # print(output.shape)
 
-        return output, alpha, beta
+        return output, alpha, var_attn_w
 
     def init_hidden(self, current_batch_size):
         return (
