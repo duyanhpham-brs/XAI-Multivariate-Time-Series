@@ -117,7 +117,7 @@ class CAMFeatureMaps:
 
     def map_activation_to_input(self, mask):
         plt.plot(self.data.T, c="black", alpha=0.2)
-
+        mask = (mask - mask.min()) / (mask.max() - mask.min())
         if len(mask.shape) > 1:
             if mask.shape[1] > 1:
                 for j in range(self.data.T.shape[1]):
@@ -154,7 +154,7 @@ class CAMFeatureMaps:
 
 def map_activation_to_input(mask, data):
     plt.plot(data.T, c="black", alpha=0.2)
-
+    mask = (mask - mask.min()) / (mask.max() - mask.min())
     if len(mask.shape) > 1:
         if mask.shape[1] > 1:
             for j in range(data.T.shape[1]):
