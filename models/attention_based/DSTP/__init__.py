@@ -116,23 +116,23 @@ class Encoder(nn.Module):
         # input_data: (batch_size, T - 1, input_size)
         # print(input_data.size())
         input_weighted1 = Variable(
-            torch.zeros(self.batch_size, self.input_size, input_data.size(1))
+            torch.zeros(input_data.size(0), self.input_size, input_data.size(1))
         ).to(device)
         input_encoded1 = Variable(
-            torch.zeros(self.batch_size, self.input_size, self.hidden_size)
+            torch.zeros(input_data.size(0), self.input_size, self.hidden_size)
         ).to(device)
         input_weighted2 = Variable(
-            torch.zeros(self.batch_size, self.input_size, input_data.size(1))
+            torch.zeros(input_data.size(0), self.input_size, input_data.size(1))
         ).to(device)
         input_encoded2 = Variable(
-            torch.zeros(self.batch_size, self.input_size, self.hidden_size)
+            torch.zeros(input_data.size(0), self.input_size, self.hidden_size)
         ).to(device)
         if self.parallel:
             input_weighted3 = Variable(
-                torch.zeros(self.batch_size, self.input_size, input_data.size(1))
+                torch.zeros(input_data.size(0), self.input_size, input_data.size(1))
             ).to(device)
             input_encoded3 = Variable(
-                torch.zeros(self.batch_size, self.input_size, self.hidden_size)
+                torch.zeros(input_data.size(0), self.input_size, self.hidden_size)
             ).to(device)
 
         # hidden, cell: initial states with dimension hidden_size
@@ -177,7 +177,7 @@ class Encoder(nn.Module):
         # Eqn. 9: Softmax the attention weights
         # Had to replace functional with generic Softmax
         # (batch_size, input_size)
-        alpha1 = self.spatial_attn_dropout11(self.softmax(x1.view(-1, self.batch_size)))
+        alpha1 = self.spatial_attn_dropout11(self.softmax(x1.view(-1, input_data.size(0))))
         # Eqn. 10: LSTM
         # (batch_size, input_size)
 
@@ -220,7 +220,7 @@ class Encoder(nn.Module):
             # Eqn. 9: Softmax the attention weights
             # Had to replace functional with generic Softmax
             # (batch_size, input_size)
-            alpha3 = self.spatial_attn_dropout12(self.softmax(x1.view(-1, self.batch_size)))
+            alpha3 = self.spatial_attn_dropout12(self.softmax(x1.view(-1, input_data.size(0))))
             # Eqn. 10: LSTM
             # (batch_size, input_size)
 
@@ -301,7 +301,10 @@ class Encoder(nn.Module):
         input_weighted2 = weighted_input2
         input_encoded2 = hidden2
 
-        return input_weighted2, input_encoded2
+        if self.parallel:
+            return input_weighted2, input_encoded2, alpha1, alpha3, alpha2
+        else:
+            return input_weighted2, input_encoded2, alpha1, alpha2
 
 
 class Decoder(nn.Module):
@@ -388,7 +391,7 @@ class Decoder(nn.Module):
         x = self.temporal_attn_dropout(self.softmax(
             self.attn_layer(
                 x.view(-1, 2 * self.decoder_hidden_size + self.encoder_hidden_size)
-            ).view(-1, self.input_size - 1)
+            ).view(-1, input_data.size(0))
         ))  # (batch_size, T - 1)
 
         # Eqn. 14: compute context vector
@@ -445,4 +448,4 @@ class Decoder(nn.Module):
             torch.cat(
                 (hidden[0].unsqueeze(0), context.repeat(1, hidden[0].size(0), 1)), dim=2
             ).view(-1, self.decoder_hidden_size + self.encoder_hidden_size)
-        )
+        ), context
