@@ -110,7 +110,7 @@ def train(
     test_data: TestData,
     test_cfg: TestConfig,
     t_cfg: TrainConfig,
-    n_epochs=20,
+    n_epochs=1,
 ):
 
     iter_per_epoch = int(np.ceil(t_cfg.train_size * 1.0 / t_cfg.batch_size))
@@ -279,8 +279,8 @@ def adjust_learning_rate(net: GeoMan, n_iter: int) -> None:
 def train_iteration(t_net: GeoMan, loss_func: typing.Callable, X, y_target):
     t_net.enc_opt.zero_grad()
     t_net.dec_opt.zero_grad()
-    _, input_encoded = t_net.encoder(numpy_to_tvar(X))
-    y_pred = t_net.decoder(input_encoded, numpy_to_tvar(X))
+    _, input_encoded = t_net.encoder(numpy_to_tvar(X))[:2]
+    y_pred = t_net.decoder(input_encoded, numpy_to_tvar(X))[0]
 
     y_true = numpy_to_tvar(y_target)
     # print(y_true.size(), y_pred.size())
@@ -338,10 +338,10 @@ def predict(
                 y_target[b_i, :] = test.targs[idx]
 
         y_target = numpy_to_tvar(y_target)
-        _, input_encoded = t_net.encoder(numpy_to_tvar(X))
+        _, input_encoded = t_net.encoder(numpy_to_tvar(X))[:2]
         # print(input_encoded.size(), y_target.size())
         y_pred[y_slc] = (
-            t_net.decoder(input_encoded, numpy_to_tvar(X)).cpu().data.numpy()
+            t_net.decoder(input_encoded, numpy_to_tvar(X))[0].cpu().data.numpy()
         )
 
     return y_pred
