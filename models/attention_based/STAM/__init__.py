@@ -86,7 +86,7 @@ class Encoder(nn.Module):
 
         # Build spatial embeddings
         spatial_emb = Variable(
-            torch.zeros(self.batch_size, self.input_size, self.spatial_emb_size)
+            torch.zeros(input_data.size(0), self.input_size, self.spatial_emb_size)
         ).to(device)
         for size in range(self.input_size):
             spatial_emb[:, size, :] = self.s_dropout(self.spatial_emb_converter[size](
@@ -102,7 +102,7 @@ class Encoder(nn.Module):
             )
             cell_emb = self.t_dropout(generic_states[1])
             hidden_emb = self.t_dropout(generic_states[0])
-            temp_emb.append(hidden_emb)
+            temp_emb.append(hidden_emb[1].unsqueeze(0))
 
             # print(input_encoded)
 
@@ -175,7 +175,7 @@ class Decoder(nn.Module):
             in_features=self.encoder_hidden_size * 2, out_features=1
         )
         self.temporal_attn_wrapper = nn.Linear(
-            in_features=self.encoder_hidden_size * 2, out_features=1
+            in_features=self.encoder_hidden_size, out_features=1
         )
 
         self.fc = nn.Linear(encoder_hidden_size * 2 + self.input_size, out_feats)
@@ -192,10 +192,10 @@ class Decoder(nn.Module):
         temp_emb: list[torch.Tensor],
     ) -> torch.Tensor:
         input_weighted = Variable(
-            torch.zeros(1, self.batch_size, self.encoder_hidden_size * 2)
+            torch.zeros(1, input_data.size(0), self.encoder_hidden_size * 2)
         ).to(device)
         input_encoded = Variable(
-            torch.zeros(1, self.batch_size, self.encoder_hidden_size * 2)
+            torch.zeros(1, input_data.size(0), self.encoder_hidden_size * 2)
         ).to(device)
 
         spat_hidden = init_hidden(input_data[:, :, 0], self.encoder_hidden_size, 1)
@@ -205,6 +205,7 @@ class Decoder(nn.Module):
         temp_cell = init_hidden(input_data[:, :, 0], self.encoder_hidden_size, 1)
 
         spatial_weighted_input = 0
+        x1_all = []
         for size in range(self.input_size):
             # print(spatial_emb[:,size].unsqueeze(1).size(), spat_hidden.repeat(spatial_emb.size(1), 1, 1).permute(1, 0, 2).size())
             x1 = torch.cat(
@@ -215,11 +216,13 @@ class Decoder(nn.Module):
                 dim=2,
             )
             # print(x1.size())
-            spatial_attn_weights = self.s_attn_dropout(self.softmax(self.relu(self.spatial_attn_linear(x1))))
+            x1 = self.spatial_attn_linear(x1)
+            x1_all.append(x1)
+            spatial_attn_weights = self.s_attn_dropout(self.softmax(self.relu(x1)))
             # print(spatial_attn_weights.size(), spatial_emb[:,size].size())
             spatial_weighted_input += torch.mul(
                 spatial_attn_weights, spatial_emb[:, size].unsqueeze(1)
-            ).view(self.batch_size, -1)
+            ).view(input_data.size(0), -1)
         # print(spatial_weighted_input.size())
         # print(spatial_weighted_input.size())
         spatial_context = self.relu(self.spatial_attn_wrapper(spatial_weighted_input))
@@ -252,6 +255,7 @@ class Decoder(nn.Module):
 
         # print(temp_emb[i].size(), temp_hidden.size())
         temporal_weighted_input = 0
+        x2_all = []
         for i in range(self.time_length):
             x2 = torch.cat(
                 (
@@ -260,9 +264,12 @@ class Decoder(nn.Module):
                 ),
                 dim=2,
             )
-
+            # print(x2.size())
+            x2 = self.temporal_attn_linear(x2)
+            # print(x2.size())
+            x2_all.append(x2)
             temporal_attn_weights = self.t_attn_dropout(self.softmax(
-                self.relu(self.temporal_attn_linear(x2))
+                self.relu(x2)
             ))
             # print(
             #     torch.mul(
@@ -276,7 +283,7 @@ class Decoder(nn.Module):
             temporal_weighted_input += torch.mul(
                 temporal_attn_weights,
                 temp_emb[i],
-            ).reshape(self.batch_size, -1)
+            ).reshape(input_data.size(0), -1)
         # print(temporal_weighted_input.size())
 
         temporal_context = self.relu(
@@ -326,4 +333,4 @@ class Decoder(nn.Module):
         ))
         
         # print(y_tilde.size())
-        return self.fc_final(y_tilde.view(self.batch_size, -1))
+        return self.fc_final(y_tilde.view(input_data.size(0), -1)), x1_all, x2_all

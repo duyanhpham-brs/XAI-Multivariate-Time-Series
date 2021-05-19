@@ -107,7 +107,7 @@ def train(
     test_data: TestData,
     test_cfg: TestConfig,
     t_cfg: TrainConfig,
-    n_epochs=20,
+    n_epochs=1,
 ):
 
     iter_per_epoch = int(np.ceil(t_cfg.train_size * 1.0 / t_cfg.batch_size))
@@ -278,7 +278,7 @@ def train_iteration(t_net: STAM, loss_func: typing.Callable, X, y_target):
     t_net.enc_opt.zero_grad()
     t_net.dec_opt.zero_grad()
     spatial_emb, temp_emb = t_net.encoder(numpy_to_tvar(X))
-    y_pred = t_net.decoder(numpy_to_tvar(X), spatial_emb, temp_emb)
+    y_pred = t_net.decoder(numpy_to_tvar(X), spatial_emb, temp_emb)[0]
 
     y_true = numpy_to_tvar(y_target)
     # print(y_pred, y_true)
@@ -341,7 +341,7 @@ def predict(
         spatial_emb, temp_emb = t_net.encoder(numpy_to_tvar(X))
         # print(input_encoded.size(), y_target.size())
         y_pred[y_slc] = (
-            t_net.decoder(numpy_to_tvar(X), spatial_emb, temp_emb).cpu().data.numpy()
+            t_net.decoder(numpy_to_tvar(X), spatial_emb, temp_emb)[0].cpu().data.numpy()
         )
         # print(y_pred[y_slc])
 
