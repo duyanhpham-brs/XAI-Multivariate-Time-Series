@@ -69,6 +69,7 @@ def train_model(
             if phase == "val" and epoch_acc > best_acc:
                 best_acc = epoch_acc
                 best_model_wts = copy.deepcopy(model.state_dict())
+                torch.save(state_dict(),'./')
 
             if phase == "train":
                 train_loss.append(epoch_loss)
