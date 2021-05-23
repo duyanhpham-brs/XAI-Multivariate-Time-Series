@@ -90,12 +90,13 @@ def dstp_rnn(
         json.dump(dec_kwargs, fi, indent=4)
     if save_path:
         # dir_path = os.path.dirname(os.path.realpath(__file__))
-        print("Resuming training from " + os.path.join(save_path, "encoder.pth"))
+        print("Resuming training from " + os.path.join(save_path, "dstp_encoder.pth"))
+        print("Resuming training from " + os.path.join(save_path, "dstp_decoder.pth"))
         encoder.load_state_dict(
-            torch.load(os.path.join(save_path, "encoder.pth"), map_location=device)
+            torch.load(os.path.join(save_path, "dstp_encoder.pth"), map_location=device)
         )
         decoder.load_state_dict(
-            torch.load(os.path.join(save_path, "decoder.pth"), map_location=device)
+            torch.load(os.path.join(save_path, "dstp_decoder.pth"), map_location=device)
         )
 
     encoder_optimizer = optim.Adam(
@@ -243,12 +244,13 @@ def train(
     dir_path = os.path.dirname(os.path.realpath(__file__))
     if not os.path.exists(os.path.join(dir_path, "checkpoint")):
         os.makedirs(os.path.join(dir_path, "checkpoint"))
-    print(os.path.join(dir_path, "checkpoint", "encoder.pth"))
+    print(os.path.join(dir_path, "checkpoint", "dstp_encoder.pth"))
+    print(os.path.join(dir_path, "checkpoint", "dstp_decoder.pth"))
     torch.save(
-        net.encoder.state_dict(), os.path.join(dir_path, "checkpoint", "encoder.pth")
+        net.encoder.state_dict(), os.path.join(dir_path, "checkpoint", "dstp_encoder.pth")
     )
     torch.save(
-        net.decoder.state_dict(), os.path.join(dir_path, "checkpoint", "decoder.pth")
+        net.decoder.state_dict(), os.path.join(dir_path, "checkpoint", "dstp_decoder.pth")
     )
 
     return [iter_losses, epoch_losses], net
