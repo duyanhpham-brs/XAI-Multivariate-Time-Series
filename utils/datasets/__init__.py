@@ -70,7 +70,6 @@ class DatasetLoader:
                 dtype=np.long,
             )
         except ValueError:
-            targets = test_data.iloc[:, 1].unique()
             test_y = np.array(
                 [
                     list(targets).index(test_data.loc[i][1])
