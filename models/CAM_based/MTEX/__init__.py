@@ -41,6 +41,7 @@ class MTEX(nn.Module):
             OrderedDict(
                 [
                     ("fc1", nn.Linear(64 * (time_length + 1) // 4), 32),
+                    ("fc1", nn.Linear(64 * (time_length+1) // 4), 32)),
                     ("fc2", nn.Linear(32, n_classes)),
                 ]
             )
