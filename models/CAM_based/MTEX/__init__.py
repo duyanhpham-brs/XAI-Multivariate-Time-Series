@@ -24,7 +24,7 @@ class MTEX(nn.Module):
         self.cnn_layers = nn.Sequential(
             OrderedDict(
                 [
-                    ("conv_1", nn.Conv2d(1, 16, (np.ceil(time_length / 2), 1)),
+                    ("conv_1", nn.Conv2d(1, 16, (np.ceil(time_length / 2), 1))),
                     ("relu_1", nn.ReLU(inplace=True)),
                     ("conv_2", nn.Conv2d(16, 32, (np.ceil(time_length / 4), 1))),
                     ("relu_2", nn.ReLU(inplace=True)),
