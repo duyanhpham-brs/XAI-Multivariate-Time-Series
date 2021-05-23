@@ -40,7 +40,9 @@ class XCM(nn.Module):
                     ("view_21", View((feature_length, time_length))),
                     (
                         "conv_21",
-                        nn.Conv1d(3, 16, window_size, padding=window_size // 2),
+                        nn.Conv1d(
+                            feature_length, 16, window_size, padding=window_size // 2
+                        ),
                     ),
                     ("batchnorm_21", nn.BatchNorm1d(16)),
                     ("relu_21", nn.ReLU(inplace=True)),
