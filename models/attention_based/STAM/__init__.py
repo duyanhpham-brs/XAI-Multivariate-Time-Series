@@ -189,7 +189,7 @@ class Decoder(nn.Module):
         self,
         input_data: torch.Tensor,
         spatial_emb: torch.Tensor,
-        temp_emb: list[torch.Tensor],
+        temp_emb: torch.Tensor,
     ) -> torch.Tensor:
         input_weighted = Variable(
             torch.zeros(1, input_data.size(0), self.encoder_hidden_size * 2)
