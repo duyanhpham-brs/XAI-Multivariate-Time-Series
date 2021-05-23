@@ -46,18 +46,38 @@ class DatasetLoader:
             [pd.DataFrame(train_data.loc[i][0]).values for i in range(len(train_data))],
             dtype=np.float,
         )
-        train_y = np.array(
-            [int(float(train_data.loc[i][1])) - 1 for i in range(len(train_data))],
-            dtype=np.long,
-        )
+        try:
+            train_y = np.array(
+                [int(float(train_data.loc[i][1])) - 1 for i in range(len(train_data))],
+                dtype=np.long,
+            )
+        except ValueError:
+            targets = train_data.iloc[:, 1].unique()
+            train_y = np.array(
+                [
+                    list(targets).index(train_data.loc[i][1])
+                    for i in range(len(train_data))
+                ],
+                dtype=np.long,
+            )
         test_X = np.array(
             [pd.DataFrame(test_data.loc[i][0]).values for i in range(len(test_data))],
             dtype=np.float,
         )
-        test_y = np.array(
-            [int(float(test_data.loc[i][1])) - 1 for i in range(len(test_data))],
-            dtype=np.long,
-        )
+        try:
+            test_y = np.array(
+                [int(float(test_data.loc[i][1])) - 1 for i in range(len(test_data))],
+                dtype=np.long,
+            )
+        except ValueError:
+            targets = test_data.iloc[:, 1].unique()
+            test_y = np.array(
+                [
+                    list(targets).index(test_data.loc[i][1])
+                    for i in range(len(test_data))
+                ],
+                dtype=np.long,
+            )
         return train_X, train_y, test_X, test_y
 
     def get_torch_dataset_loader_auto(self, train_batch_size, test_batch_size):
