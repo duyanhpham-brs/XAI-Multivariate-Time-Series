@@ -30,7 +30,7 @@ class MTEX(nn.Module):
                     ("relu_2", nn.ReLU(inplace=True)),
                     ("conv_3", nn.Conv2d(32, 1, 1)),
                     ("relu_3", nn.ReLU(inplace=True)),
-                    ("view", View((feature_length, time_length // 4 + 2))),
+                    ("view", View((feature_length, (time_length + 1)// 4 ))),
                     ("conv_4", nn.Conv1d(feature_length, 64, 3)),
                     ("relu_4", nn.ReLU(inplace=True)),
                 ]
