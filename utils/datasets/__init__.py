@@ -46,6 +46,7 @@ class DatasetLoader:
             [pd.DataFrame(train_data.loc[i][0]).values for i in range(len(train_data))],
             dtype=np.float,
         )
+        train_X = (train_X - train_X.min()) / (train_X.max() - train_X.min())
         try:
             train_y = np.array(
                 [int(float(train_data.loc[i][1])) - 1 for i in range(len(train_data))],
@@ -64,6 +65,7 @@ class DatasetLoader:
             [pd.DataFrame(test_data.loc[i][0]).values for i in range(len(test_data))],
             dtype=np.float,
         )
+        test_X = (test_X - test_X.min()) / (test_X.max() - test_X.min())
         try:
             test_y = np.array(
                 [int(float(test_data.loc[i][1])) - 1 for i in range(len(test_data))],
