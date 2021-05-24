@@ -70,6 +70,7 @@ class Encoder(nn.Module):
         # input_data: (batch_size, T - 1, input_size)
         # print(input_data.size())
         input_data = input_data.to(device)
+        input_weighted = Variable(
             torch.zeros(input_data.size(0), self.input_size, input_data.size(1))
         ).to(device)
         input_encoded = Variable(
