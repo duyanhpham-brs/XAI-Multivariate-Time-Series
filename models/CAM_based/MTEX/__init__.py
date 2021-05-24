@@ -41,8 +41,7 @@ class MTEX(nn.Module):
                         "view",
                         View(
                             (
-                                feature_length,
-                                (time_length // 4 + 2 * (time_length % 2)),
+                                feature_length
                             )
                         ),
                     ),

@@ -6,17 +6,17 @@ import torch.nn as nn
 class View(nn.Module):
     def __init__(self, shape):
         super().__init__()
-        self.shape = shape
+        self.feature_length = feature_length
 
     def __repr__(self):
-        return f"View{self.shape}"
+        return f"View{self.feature_length}"
 
     def forward(self, x):
         """
         Reshapes the input according to the shape saved in the view data structure.
         """
         batch_size = x.size(0)
-        shape = (batch_size, *self.shape)
+        shape = (batch_size, self.feature_length, -1)
         out = x.view(shape)
         return out
 

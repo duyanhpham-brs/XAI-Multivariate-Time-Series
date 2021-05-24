@@ -37,7 +37,7 @@ class XCM(nn.Module):
         self.cnn_layers2_b1 = nn.Sequential(
             OrderedDict(
                 [
-                    ("view_21", View((feature_length, time_length))),
+                    ("view_21", View((feature_length))),
                     (
                         "conv_21",
                         nn.Conv1d(
