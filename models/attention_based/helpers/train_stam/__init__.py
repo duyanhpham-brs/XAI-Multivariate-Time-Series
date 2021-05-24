@@ -115,6 +115,7 @@ def train(
     iter_losses = np.zeros(n_epochs * iter_per_epoch)
     epoch_losses = np.zeros(n_epochs)
     n_iter = 0
+    max_val_acc = 0
 
     for e_i in range(n_epochs):
         net.encoder.train()
@@ -231,9 +232,13 @@ def train(
                 * 100
             )
 
+            if acc > max_val_acc:
+                max_val_acc = acc
             print(
                 f"Epoch {e_i} with Train loss = {epoch_losses[e_i]}, Val loss = {val_loss}, Val acc = {acc}%, Train acc = {train_acc}%"
             )
+            if e_i == n_epochs - 1:
+                print(f"Max val acc = {max_val_acc}")
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
     if not os.path.exists(os.path.join(dir_path, "checkpoint")):
