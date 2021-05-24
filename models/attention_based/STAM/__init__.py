@@ -73,7 +73,7 @@ class Encoder(nn.Module):
             self.spatial_emb_converter.append(
                 nn.Linear(
                     in_features=self.time_length, out_features=self.spatial_emb_size
-                )
+                ).to(device)
             )
 
     def forward(self, input_data: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
