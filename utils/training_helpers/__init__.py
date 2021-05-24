@@ -4,7 +4,7 @@ import torch.nn as nn
 
 
 class View(nn.Module):
-    def __init__(self, shape):
+    def __init__(self, feature_length):
         super().__init__()
         self.feature_length = feature_length
 
