@@ -90,7 +90,7 @@ class Encoder(nn.Module):
         ).to(device)
         for size in range(self.input_size):
             spatial_emb[:, size, :] = self.s_dropout(self.spatial_emb_converter[size](
-                input_data[:, size, :]
+                input_data[:, size, :].to(device)
             ))
 
         # Build temporal embeddings
