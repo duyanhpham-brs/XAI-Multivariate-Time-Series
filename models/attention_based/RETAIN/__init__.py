@@ -100,6 +100,7 @@ class RetainNN(nn.Module):
         # emb_layer: output(*,H): where * is the input shape and H = embedding_dim
         # print("size of input:")
         # print(input_data.shape)
+        input_data = input_data.to(device)
         v = self.emb_layer(input_data)
         # print("size of v:")
         # print(v.shape)

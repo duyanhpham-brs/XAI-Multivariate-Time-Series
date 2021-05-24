@@ -79,6 +79,7 @@ class Encoder(nn.Module):
     def forward(self, input_data: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         # print("Encoder started")
         # embedding hidden, cell size
+        input_data = input_data.to(device)
         hidden_emb = init_hidden(
             input_data[:, :, 0], self.hidden_size, 2
         )  # 2 * batch_size * hidden_size
@@ -191,6 +192,7 @@ class Decoder(nn.Module):
         spatial_emb: torch.Tensor,
         temp_emb: torch.Tensor,
     ) -> torch.Tensor:
+        input_data = input_data.to(device)
         input_weighted = Variable(
             torch.zeros(1, input_data.size(0), self.encoder_hidden_size * 2)
         ).to(device)
