@@ -39,12 +39,7 @@ class MTEX(nn.Module):
                     ("relu_3", nn.ReLU(inplace=True)),
                     (
                         "view",
-                        View(
-                            (
-                                feature_length,
-                                (time_length // 4 + 2 * (time_length % 2)),
-                            )
-                        ),
+                        View((feature_length)),
                     ),
                     ("conv_4", nn.Conv1d(feature_length, 64, 3)),
                     ("relu_4", nn.ReLU(inplace=True)),
@@ -58,7 +53,13 @@ class MTEX(nn.Module):
                     (
                         "fc1",
                         nn.Linear(
-                            64 * (time_length // 4 + 2 * (time_length % 2) - 2), 32
+                            64
+                            * int(
+                                np.around(time_length / 4, decimals=0)
+                                - 2
+                                + time_length % 2
+                            ),
+                            32,
                         ),
                     ),
                     ("fc2", nn.Linear(32, n_classes)),
