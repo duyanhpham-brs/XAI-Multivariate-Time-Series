@@ -128,7 +128,7 @@ class CAMFeatureMaps:
                         cmap="jet",
                         s=7,
                     )
-                    plt.text(0.05, data.T[0, j]+0.05, str(j), fontsize=10)
+                    plt.text(0.05, self.data.T[0, j] + 0.05, str(j), fontsize=10)
             else:
                 for j in range(self.data.T.shape[1]):
                     plt.scatter(
@@ -138,7 +138,7 @@ class CAMFeatureMaps:
                         cmap="jet",
                         s=7,
                     )
-                    plt.text(0.05, data.T[0, j]+0.05, str(j), fontsize=10)
+                    plt.text(0.05, self.data.T[0, j] + 0.05, str(j), fontsize=10)
         else:
             for j in range(self.data.T.shape[1]):
                 plt.scatter(
@@ -148,9 +148,10 @@ class CAMFeatureMaps:
                     cmap="jet",
                     s=7,
                 )
-                plt.text(0.05, data.T[0, j]+0.05, str(j), fontsize=10)
+                plt.text(0.05, self.data.T[0, j] + 0.05, str(j), fontsize=10)
 
         plt.show()
+
 
 def map_activation_to_input(mask, data):
     plt.plot(data.T, c="black", alpha=0.2)
@@ -165,7 +166,7 @@ def map_activation_to_input(mask, data):
                     cmap="jet",
                     s=7,
                 )
-                plt.text(0.05, data.T[0, j]+0.05, str(j), fontsize=10)
+                plt.text(0.05, data.T[0, j] + 0.05, str(j), fontsize=10)
         else:
             for j in range(data.T.shape[1]):
                 plt.scatter(
@@ -175,7 +176,7 @@ def map_activation_to_input(mask, data):
                     cmap="jet",
                     s=7,
                 )
-                plt.text(0.05, data.T[0, j]+0.05, str(j), fontsize=10)
+                plt.text(0.05, data.T[0, j] + 0.05, str(j), fontsize=10)
     else:
         for j in range(data.T.shape[1]):
             plt.scatter(
@@ -185,6 +186,6 @@ def map_activation_to_input(mask, data):
                 cmap="jet",
                 s=7,
             )
-            plt.text(0.05, data.T[0, j]+0.05, str(j), fontsize=10)
+            plt.text(0.05, data.T[0, j] + 0.05, str(j), fontsize=10)
 
     plt.show()
