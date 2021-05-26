@@ -18,13 +18,14 @@ class CAMFeatureMaps:
         smooth_factor=None,
         std=None,
         has_gap=None,
+        use_cuda=False,
     ):
         if smooth_factor is not None and std is not None and has_gap is not None:
             self.cam = self.CAM_model(
                 model=model,
                 feature_module=module,
                 target_layer_names=[target_layer_names],
-                use_cuda=False,
+                use_cuda=use_cuda,
                 smooth_factor=smooth_factor,
                 std=std,
                 has_gap=has_gap,
@@ -34,7 +35,7 @@ class CAMFeatureMaps:
                 model=model,
                 feature_module=module,
                 target_layer_names=[target_layer_names],
-                use_cuda=False,
+                use_cuda=use_cuda,
                 smooth_factor=smooth_factor,
             )
         elif std is not None and smooth_factor is None and has_gap is None:
@@ -42,7 +43,7 @@ class CAMFeatureMaps:
                 model=model,
                 feature_module=module,
                 target_layer_names=[target_layer_names],
-                use_cuda=False,
+                use_cuda=use_cuda,
                 std=std,
             )
         elif has_gap is not None and smooth_factor is None and std is None:
@@ -50,7 +51,7 @@ class CAMFeatureMaps:
                 model=model,
                 feature_module=module,
                 target_layer_names=[target_layer_names],
-                use_cuda=False,
+                use_cuda=use_cuda,
                 has_gap=has_gap,
             )
         elif has_gap is not None and std is not None and smooth_factor is None:
@@ -67,7 +68,7 @@ class CAMFeatureMaps:
                 model=model,
                 feature_module=module,
                 target_layer_names=[target_layer_names],
-                use_cuda=False,
+                use_cuda=use_cuda,
                 has_gap=has_gap,
                 smooth_factor=smooth_factor,
             )
@@ -76,7 +77,7 @@ class CAMFeatureMaps:
                 model=model,
                 feature_module=module,
                 target_layer_names=[target_layer_names],
-                use_cuda=False,
+                use_cuda=use_cuda,
                 std=std,
                 smooth_factor=smooth_factor,
             )
@@ -85,7 +86,7 @@ class CAMFeatureMaps:
                 model=model,
                 feature_module=module,
                 target_layer_names=[target_layer_names],
-                use_cuda=False,
+                use_cuda=use_cuda,
             )
 
     def show(self, data, print_out, index, dataset_path=None, upsampling=True):
