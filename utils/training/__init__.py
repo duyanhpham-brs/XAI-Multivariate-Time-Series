@@ -10,7 +10,7 @@ def train_model(
     model, criterion, optimizer, scheduler, dataloaders, datasets_size, num_epochs=25
 ):
     since = time.time()
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     train_loss = []
     test_loss = []
@@ -70,7 +70,9 @@ def train_model(
             if phase == "val" and epoch_acc > best_acc:
                 best_acc = epoch_acc
                 best_model_wts = copy.deepcopy(model.state_dict())
-                torch.save(model.state_dict(),os.path.join("./",f"{int(best_acc)}-acc.pth"))
+                torch.save(
+                    model.state_dict(), os.path.join("./", f"{int(best_acc)}-acc.pth")
+                )
 
             if phase == "train":
                 train_loss.append(epoch_loss)
