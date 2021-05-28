@@ -53,6 +53,8 @@ class DatasetLoader:
                 [int(float(train_data.loc[i][1])) - 1 for i in range(len(train_data))],
                 dtype=np.long,
             )
+            if np.any(train_y < 0):
+                train_y += 1
         except ValueError:
             targets = train_data.iloc[:, 1].unique()
             train_y = np.array(
@@ -73,6 +75,8 @@ class DatasetLoader:
                 [int(float(test_data.loc[i][1])) - 1 for i in range(len(test_data))],
                 dtype=np.long,
             )
+            if np.any(test_y < 0):
+                test_y += 1
         except ValueError:
             test_y = np.array(
                 [
