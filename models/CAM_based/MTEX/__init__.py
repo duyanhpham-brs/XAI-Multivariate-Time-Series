@@ -56,8 +56,8 @@ class MTEX(nn.Module):
                             64
                             * int(
                                 np.around(time_length / 4, decimals=0)
-                                - 2
-                                + time_length % 2
+                                - 1
+                                - 0 ** (time_length % 2)
                             ),
                             32,
                         ),
