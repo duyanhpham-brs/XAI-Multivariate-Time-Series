@@ -53,18 +53,7 @@ class MTEX(nn.Module):
                     (
                         "fc1",
                         nn.Linear(
-                            64
-                            * int(
-                                np.around(time_length / 4, decimals=0)
-                                - 1 * (feature_length % 2 or time_length % 2)
-                                - 1
-                                * (
-                                    feature_length % 2 == 0
-                                    and time_length % 2 == 0
-                                    and feature_length < 3
-                                )
-                                - 0 ** (time_length % 2)
-                            ),
+                            64 * int(time_length // 4 - 2 + 1 * (time_length % 4 != 0)),
                             32,
                         ),
                     ),
