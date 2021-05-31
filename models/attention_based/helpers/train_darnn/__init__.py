@@ -244,7 +244,7 @@ def train(
     if not os.path.exists(os.path.join(dir_path, "checkpoint")):
         os.makedirs(os.path.join(dir_path, "checkpoint"))
     print(os.path.join(dir_path, "checkpoint", "darnn_encoder.pth"))
-    print(os.path.join(dir_path, "checkpoint", "darnn_encoder.pth"))
+    print(os.path.join(dir_path, "checkpoint", "darnn_decoder.pth"))
     torch.save(
         net.encoder.state_dict(), os.path.join(dir_path, "checkpoint", "darnn_encoder.pth")
     )
