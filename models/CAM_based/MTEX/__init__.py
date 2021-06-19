@@ -58,6 +58,7 @@ class MTEX(nn.Module):
                                 np.round(time_length / 4)
                                 - 2
                                 + 1 * (time_length % 4 != 0)
+                                - 1 * (time_length % 4 == 2)
                             ),
                             32,
                         ),
