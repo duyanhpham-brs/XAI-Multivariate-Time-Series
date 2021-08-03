@@ -89,7 +89,28 @@ class ModelOutputs:
                 x = module(x)
                 x = x.view(x.size(0), -1)
             elif name.lower().find("linear") == -1:
-                x = torch.cat(tuple(branches[num_branch]), 1)
+                print(branches[num_branch][0].shape, branches[num_branch][1].shape)
+                if name == "cnn_layers3_txcm":
+                    x = (
+                        branches[num_branch][0].reshape(
+                            branches[num_branch][1].shape[0],
+                            -1,
+                            branches[num_branch][1].shape[2],
+                        )
+                        * branches[num_branch][1]
+                    )
+                else:
+                    x = torch.cat(
+                        (
+                            branches[num_branch][0].reshape(
+                                branches[num_branch][1].shape[0],
+                                -1,
+                                branches[num_branch][1].shape[2],
+                            ),
+                            branches[num_branch][1],
+                        ),
+                        1,
+                    )
                 x = module(x)
             elif name.lower().find("linear") != -1:
                 if len(x.size()) == 3:
