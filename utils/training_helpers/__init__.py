@@ -64,5 +64,5 @@ class ExtractLastCell(nn.Module):
         """
         Extract last cell for RNN
         """
-        out, _ = x.detach()
-        return out[:, -1, :]
+        out, _ = x
+        return out.detach()[:, -1, :]
