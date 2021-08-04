@@ -1,11 +1,14 @@
 from collections import OrderedDict
 import torch
 import torch.nn as nn
-from utils.training_helpers import View, Squeeze, SwapLastDims
+from utils.training_helpers import View, Squeeze, SwapLastDims, ExtractLastCell
+from models.attention_based.STAM import Decoder
 
 
 class TXCM(nn.Module):
-    def __init__(self, window_size, time_length, feature_length, n_classes):
+    def __init__(
+        self, window_size, time_length, feature_length, hidden_size, n_classes
+    ):
         super().__init__()
         self.cnn_layers1_b1 = nn.Sequential(
             OrderedDict(
@@ -29,14 +32,14 @@ class TXCM(nn.Module):
                 [
                     ("view_21", View((feature_length))),
                     (
-                        "conv_21",
-                        nn.Conv1d(
-                            feature_length, 16, window_size, padding=window_size // 2
+                        "rnn_21",
+                        nn.LSTM(
+                            input_size=time_length,
+                            hidden_size=time_length,
+                            batch_first=True,
                         ),
                     ),
-                    ("batchnorm_21", nn.BatchNorm1d(16)),
-                    ("relu_21", nn.ReLU(inplace=True)),
-                    ("conv_22", nn.Conv1d(16, 1, 1)),
+                    ("select_21", ExtractLastCell()),
                     ("relu_22", nn.ReLU(inplace=True)),
                 ]
             )
@@ -78,7 +81,7 @@ class TXCM(nn.Module):
         # 1d (temporal) branch
         second_branch = self.cnn_layers2_b1(x)
         # Multiplication
-        main_branch = first_branch * second_branch
+        main_branch = first_branch * second_branch.unsqueeze(1)
         main_branch = self.cnn_layers3_txcm(main_branch)
         main_branch = self.avgpool_layer(main_branch)
         main_branch = self.linear_layers(main_branch)

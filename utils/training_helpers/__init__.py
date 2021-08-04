@@ -32,7 +32,7 @@ class Squeeze(nn.Module):
         batch_size = x.size(0)
         x = torch.squeeze(x)
         if len(x.size()) == 2:
-           x = x.view((batch_size, -1))
+            x = x.view((batch_size, -1))
         elif len(x.size()) == 1:
             x = x.view((batch_size, 1))
         return x
@@ -54,3 +54,15 @@ class SwapLastDims(nn.Module):
         shape = (batch_size, x.size(-1), x.size(-2))
         out = x.view(shape)
         return out
+
+
+class ExtractLastCell(nn.Module):
+    def __repr__(self):
+        return "ExtractLastCell()"
+
+    def forward(self, x):
+        """
+        Extract last cell for RNN
+        """
+        out, _ = x
+        return out[:, -1, :]

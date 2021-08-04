@@ -95,9 +95,9 @@ class ModelOutputs:
                         branches[num_branch][0].reshape(
                             branches[num_branch][1].shape[0],
                             -1,
-                            branches[num_branch][1].shape[2],
+                            branches[num_branch][1].unsqueeze(1).shape[2],
                         )
-                        * branches[num_branch][1]
+                        * branches[num_branch][1].unsqueeze(1)
                     )
                 else:
                     x = torch.cat(
