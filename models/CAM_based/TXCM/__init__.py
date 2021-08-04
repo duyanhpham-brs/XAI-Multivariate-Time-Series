@@ -41,6 +41,7 @@ class TXCM(nn.Module):
                     ),
                     ("select_21", ExtractLastCell()),
                     ("relu_22", nn.ReLU(inplace=True)),
+                    ("softmax", nn.Softmax(dim=1)),
                 ]
             )
         )
