@@ -2,10 +2,9 @@ from collections import OrderedDict
 import torch
 import torch.nn as nn
 from utils.training_helpers import View, Squeeze, SwapLastDims, ExtractLastCell
-from models.attention_based.STAM import Decoder
 
 
-class TXCM(nn.Module):
+class TSEM(nn.Module):
     def __init__(self, window_size, time_length, feature_length, n_classes):
         super().__init__()
         self.cnn_layers1_b1 = nn.Sequential(
