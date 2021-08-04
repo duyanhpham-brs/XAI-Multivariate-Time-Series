@@ -6,9 +6,7 @@ from models.attention_based.STAM import Decoder
 
 
 class TXCM(nn.Module):
-    def __init__(
-        self, window_size, time_length, feature_length, hidden_size, n_classes
-    ):
+    def __init__(self, window_size, time_length, feature_length, n_classes):
         super().__init__()
         self.cnn_layers1_b1 = nn.Sequential(
             OrderedDict(
@@ -35,12 +33,20 @@ class TXCM(nn.Module):
                         "rnn_21",
                         nn.LSTM(
                             input_size=time_length,
-                            hidden_size=time_length,
+                            hidden_size=window_size,
                             batch_first=True,
                         ),
                     ),
                     ("select_21", ExtractLastCell()),
                     ("relu_22", nn.ReLU(inplace=True)),
+                    (
+                        "upsample",
+                        nn.Upsample(
+                            scale_factor=time_length / window_size,
+                            mode="linear",
+                            align_corners=True,
+                        ),
+                    ),
                     ("softmax", nn.Softmax(dim=1)),
                 ]
             )
@@ -82,7 +88,7 @@ class TXCM(nn.Module):
         # 1d (temporal) branch
         second_branch = self.cnn_layers2_b1(x)
         # Multiplication
-        main_branch = first_branch * second_branch.unsqueeze(1)
+        main_branch = first_branch * second_branch
         main_branch = self.cnn_layers3_txcm(main_branch)
         main_branch = self.avgpool_layer(main_branch)
         main_branch = self.linear_layers(main_branch)
