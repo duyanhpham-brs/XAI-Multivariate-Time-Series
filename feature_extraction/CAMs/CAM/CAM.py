@@ -143,7 +143,7 @@ class CAM(UnitCAM):
 
                     return x
 
-            new_model = TargetedModel(n_classes, out_channels)
+            new_model = TargetedModel(n_classes, out_channels).to("cuda:0")
 
             for param in new_model._modules["linear_layers_1d"].parameters():
                 param.requires_grad = True
