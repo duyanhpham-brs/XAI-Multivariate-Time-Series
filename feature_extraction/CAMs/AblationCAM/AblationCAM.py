@@ -121,4 +121,4 @@ class AblationCAM(UnitCAM):
         ), "Weights and targets layer shapes are not compatible."
         cam = self.cam_weighted_sum(cam, weights, self.target)
 
-        return cam, output[0, index].data.numpy()
+        return cam, output[0, index].data.cpu().numpy()

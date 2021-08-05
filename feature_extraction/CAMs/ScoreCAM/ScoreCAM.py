@@ -146,4 +146,4 @@ class ScoreCAM(UnitCAM):
             cam, scores.detach().numpy(), self.target.detach().numpy()
         )
 
-        return cam, output[0, index].data.numpy()
+        return cam, output[0, index].data.cpu().numpy()
