@@ -69,6 +69,8 @@ class CAM(UnitCAM):
         -------
             cam: The resulting weighted feature maps
         """
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
         if index is not None and print_out == True:
             print_out = False
 
@@ -143,7 +145,7 @@ class CAM(UnitCAM):
 
                     return x
 
-            new_model = TargetedModel(n_classes, out_channels).to("cuda:0")
+            new_model = TargetedModel(n_classes, out_channels).to(device)
 
             for param in new_model._modules["linear_layers_1d"].parameters():
                 param.requires_grad = True

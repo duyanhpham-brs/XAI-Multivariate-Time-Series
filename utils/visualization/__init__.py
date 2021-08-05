@@ -9,6 +9,7 @@ class CAMFeatureMaps:
         self.CAM_model = CAM_model
         self.cam = None
         self.data = None
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     def load(
         self,
@@ -94,7 +95,7 @@ class CAMFeatureMaps:
         target_index = index
         X_inp = torch.from_numpy(self.data.reshape(1, -1, self.data.shape[0]))
         X_inp.unsqueeze_(0)
-        X_inp = X_inp.float().requires_grad_(True)
+        X_inp = X_inp.to(self.device).float().requires_grad_(True)
         if dataset_path is None:
             mask = np.squeeze(self.cam(X_inp, print_out, target_index))
         else:
