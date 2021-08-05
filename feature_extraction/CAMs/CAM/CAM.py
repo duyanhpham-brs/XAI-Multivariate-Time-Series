@@ -175,7 +175,7 @@ class CAM(UnitCAM):
             features, output, index = self.extract_features(
                 input_features, print_out, index
             )
-            print(index, output)
+            print(index, output[0, index])
 
             target = features[-1]
             target = target.cpu().data.numpy()[0, :]
