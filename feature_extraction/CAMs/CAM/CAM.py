@@ -177,7 +177,7 @@ class CAM(UnitCAM):
             features, output, index = self.extract_features(
                 input_features, print_out, index
             )
-            print(index, output[0, index].data.cpu().numpy())
+            print(index, output)
 
             target = features[-1]
             target = target.cpu().data.numpy()[0, :]
@@ -248,7 +248,7 @@ class CAM(UnitCAM):
             # ), "Weights and targets layer shapes are not compatible."
             cam = self.cam_weighted_sum(cam, weights, target, ReLU=False)
 
-            return cam, output[0, index].data.cpu().numpy()
+            return cam, output
 
         features, output, index = self.extract_features(
             input_features, print_out, index
@@ -281,4 +281,4 @@ class CAM(UnitCAM):
         ), "Weights and targets layer shapes are not compatible."
         cam = self.cam_weighted_sum(cam, weights, target, ReLU=False)
 
-        return cam, output[0, index].data.cpu().numpy()
+        return cam, output
