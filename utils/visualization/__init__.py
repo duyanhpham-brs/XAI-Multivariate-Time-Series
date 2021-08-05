@@ -90,32 +90,38 @@ class CAMFeatureMaps:
                 use_cuda=use_cuda,
             )
 
-    def show(self, data, print_out, index, dataset_path=None, upsampling=True):
+    def show(
+        self, data, print_out, index, dataset_path=None, upsampling=True, plot=False
+    ):
         self.data = data
         target_index = index
         X_inp = torch.from_numpy(self.data.reshape(1, -1, self.data.shape[0]))
         X_inp.unsqueeze_(0)
         X_inp = X_inp.to(self.device).float().requires_grad_(True)
         if dataset_path is None:
-            mask = np.squeeze(self.cam(X_inp, print_out, target_index)[0])
+            cam, output = self.cam(X_inp, print_out, target_index)
+            mask = np.squeeze(cam)
         else:
-            mask = np.squeeze(self.cam(X_inp, print_out, target_index, dataset_path)[0])
-        if len(mask.shape) == 2:
-            plt.figure(figsize=(200, 60))
-            plt.imshow(mask.T, cmap="jet")
-            plt.yticks(range(mask.shape[1]))
-            plt.grid()
-            plt.show(block=False)
-        elif len(mask.shape) == 1:
-            plt.figure(figsize=(200, 60))
-            plt.imshow(mask.reshape(1, -1), cmap="jet")
-            plt.grid()
-            plt.show(block=False)
+            cam, output = self.cam(X_inp, print_out, target_index, dataset_path)
+            mask = np.squeeze(cam)
+
+        if plot:
+            if len(mask.shape) == 2:
+                plt.figure(figsize=(200, 60))
+                plt.imshow(mask.T, cmap="jet")
+                plt.yticks(range(mask.shape[1]))
+                plt.grid()
+                plt.show(block=False)
+            elif len(mask.shape) == 1:
+                plt.figure(figsize=(200, 60))
+                plt.imshow(mask.reshape(1, -1), cmap="jet")
+                plt.grid()
+                plt.show(block=False)
 
         if upsampling:
             mask = upsample(mask, self.data)
 
-        return mask
+        return mask, output
 
     def map_activation_to_input(self, mask):
         plt.plot(self.data.T, c="black", alpha=0.2)
