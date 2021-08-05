@@ -175,7 +175,7 @@ class CAM(UnitCAM):
             features, output, index = self.extract_features(
                 input_features, print_out, index
             )
-            print(index, output[0, index])
+            print(index, output[0, index].detach())
 
             target = features[-1]
             target = target.cpu().data.numpy()[0, :]
@@ -241,9 +241,9 @@ class CAM(UnitCAM):
             target = np.squeeze(target)
             weights = np.squeeze(weights).T
 
-            assert (
-                weights.shape[0] == target.shape[0]
-            ), "Weights and targets layer shapes are not compatible."
+            # assert (
+            #     weights.shape[0] == target.shape[0]
+            # ), "Weights and targets layer shapes are not compatible."
             cam = self.cam_weighted_sum(cam, weights, target, ReLU=False)
 
             return cam
