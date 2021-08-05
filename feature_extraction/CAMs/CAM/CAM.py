@@ -132,7 +132,7 @@ class CAM(UnitCAM):
                                 ("avg_pool", torch.nn.AdaptiveAvgPool2d(1)),
                                 ("squeeze", Squeeze()),
                                 ("fc1", torch.nn.Linear(out_channels, n_classes)),
-                                ("softmax", nn.Softmax(dim=1)),
+                                ("softmax", torch.nn.Softmax(dim=1)),
                             ]
                         )
                     )
