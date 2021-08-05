@@ -135,7 +135,9 @@ class ScoreCAM(UnitCAM):
         if index is not None and print_out == True:
             print_out = False
 
-        cam, scores = self.compute_score_saliency_map(input_features, print_out, index)
+        cam, scores, output = self.compute_score_saliency_map(
+            input_features, print_out, index
+        )
 
         assert (
             scores.shape[0] == self.target.shape[0]
@@ -144,4 +146,4 @@ class ScoreCAM(UnitCAM):
             cam, scores.detach().numpy(), self.target.detach().numpy()
         )
 
-        return cam
+        return cam, output[0, index].data.numpy()

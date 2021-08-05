@@ -54,7 +54,7 @@ class XGradCAM(GradCAM):
         -------
             cam: The resulting weighted feature maps
         """
-        self.calculate_gradients(input_features, print_out, index)
+        output = self.calculate_gradients(input_features, print_out, index)
 
         cam, weights = self.map_gradients()
         assert (
@@ -62,4 +62,4 @@ class XGradCAM(GradCAM):
         ), "Weights and targets layer shapes are not compatible."
         cam = self.cam_weighted_sum(cam, weights, self.target)
 
-        return cam
+        return cam, output[0, index].data.numpy()

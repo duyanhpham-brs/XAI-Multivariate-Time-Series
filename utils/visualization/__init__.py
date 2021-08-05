@@ -97,9 +97,9 @@ class CAMFeatureMaps:
         X_inp.unsqueeze_(0)
         X_inp = X_inp.to(self.device).float().requires_grad_(True)
         if dataset_path is None:
-            mask = np.squeeze(self.cam(X_inp, print_out, target_index))
+            mask = np.squeeze(self.cam(X_inp, print_out, target_index)[0])
         else:
-            mask = np.squeeze(self.cam(X_inp, print_out, target_index, dataset_path))
+            mask = np.squeeze(self.cam(X_inp, print_out, target_index, dataset_path)[0])
         if len(mask.shape) == 2:
             plt.figure(figsize=(200, 60))
             plt.imshow(mask.T, cmap="jet")

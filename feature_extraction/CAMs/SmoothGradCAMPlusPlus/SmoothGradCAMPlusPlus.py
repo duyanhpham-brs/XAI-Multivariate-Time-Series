@@ -51,7 +51,7 @@ class SmoothGradCAMPlusPlus(GradCAMPlusPlus):
         second_derivatives = None
         third_derivatives = None
         for _ in range(self.smooth_factor):
-            self.calculate_gradients(
+            output = elf.calculate_gradients(
                 input_features + self._distrib.sample(input_features.size()),
                 print_out,
                 index,
@@ -115,4 +115,4 @@ class SmoothGradCAMPlusPlus(GradCAMPlusPlus):
         ), "Weights and targets layer shapes are not compatible."
         cam = self.cam_weighted_sum(cam, weights, self.target)
 
-        return cam
+        return cam, output[0, index].data.numpy()

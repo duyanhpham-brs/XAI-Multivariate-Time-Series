@@ -78,6 +78,8 @@ class AblationCAM(UnitCAM):
 
             self.slope.append((one_hot - one_hot_k) / (one_hot + 1e-9))
 
+        return output
+
     def map_slopes(self):
         """Caculate weights based on the gradients corresponding to the extracting layer
         via global average pooling
@@ -111,7 +113,7 @@ class AblationCAM(UnitCAM):
         if index is not None and print_out == True:
             print_out = False
 
-        self.calculate_slope(input_features, print_out, index)
+        output, self.calculate_slope(input_features, print_out, index)
 
         cam, weights = self.map_slopes()
         assert (
@@ -119,4 +121,4 @@ class AblationCAM(UnitCAM):
         ), "Weights and targets layer shapes are not compatible."
         cam = self.cam_weighted_sum(cam, weights, self.target)
 
-        return cam
+        return cam, output[0, index].data.numpy()
