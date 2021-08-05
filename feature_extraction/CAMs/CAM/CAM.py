@@ -181,24 +181,28 @@ class CAM(UnitCAM):
                 print(
                     new_model._modules["linear_layers_1d"][-1]
                     .weight.detach()
+                    .cpu()
                     .numpy()
                     .shape
                 )
                 weights = (
                     new_model._modules["linear_layers_1d"][-1]
                     .weight.detach()
+                    .cpu()
                     .numpy()[index, :]
                 )
             except AttributeError:
                 print(
                     new_model._modules["linear_layers_1d"][-2]
                     .weight.detach()
+                    .cpu()
                     .numpy()
                     .shape
                 )
                 weights = (
                     new_model._modules["linear_layers_1d"][-2]
                     .weight.detach()
+                    .cpu()
                     .numpy()[index, :]
                 )
             except KeyError:
@@ -206,18 +210,21 @@ class CAM(UnitCAM):
                     print(
                         new_model._modules["linear_layers_2d"][-1]
                         .weight.detach()
+                        .cpu()
                         .numpy()
                         .shape
                     )
                     weights = (
                         new_model._modules["linear_layers_2d"][-1]
                         .weight.detach()
+                        .cpu()
                         .numpy()[index, :]
                     )
                 except AttributeError:
                     print(
                         new_model._modules["linear_layers_2d"][-2]
                         .weight.detach()
+                        .cpu()
                         .numpy()
                         .shape
                     )
@@ -247,12 +254,14 @@ class CAM(UnitCAM):
             weights = (
                 new_model._modules["linear_layers"][-1]
                 .weight.detach()
+                .cpu()
                 .numpy()[:, index]
             )
         except AttributeError:
             weights = (
                 new_model._modules["linear_layers"][-2]
                 .weight.detach()
+                .cpu()
                 .numpy()[:, index]
             )
 
