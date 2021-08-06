@@ -81,7 +81,10 @@ class SmoothGradCAMPlusPlus(GradCAMPlusPlus):
                 second_derivatives.max(),
             )
             if second_derivatives_min == second_derivatives_max:
-                return None
+                second_derivatives_min, second_derivatives_max = (
+                    second_derivatives.min(),
+                    second_derivatives.max(),
+                )
             second_derivatives = (
                 (second_derivatives - second_derivatives_min)
                 .div(second_derivatives_min - second_derivatives_max)
