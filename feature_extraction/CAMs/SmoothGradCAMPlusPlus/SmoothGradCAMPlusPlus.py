@@ -101,7 +101,7 @@ class SmoothGradCAMPlusPlus(GradCAMPlusPlus):
                 .data
             )
 
-        self.calculate_gradients(input_features, print_out, index)
+        output = self.calculate_gradients(input_features, print_out, index)
         global_sum = self.compute_global_sum(self.one_hot)
 
         self.extract_higher_level_gradient(
