@@ -91,7 +91,14 @@ class CAMFeatureMaps:
             )
 
     def show(
-        self, data, print_out, index, dataset_path=None, upsampling=True, plot=False
+        self,
+        data,
+        print_out,
+        index,
+        dataset_path=None,
+        upsampling=True,
+        plot=False,
+        n_classes=None,
     ):
         self.data = data
         target_index = index
@@ -99,8 +106,11 @@ class CAMFeatureMaps:
         X_inp.unsqueeze_(0)
         X_inp = X_inp.to(self.device).float().requires_grad_(True)
         if dataset_path is None:
-            cam, output = self.cam(X_inp, print_out, target_index)
-            mask = np.squeeze(cam)
+            try:
+                cam, output = self.cam(X_inp, print_out, target_index)
+                mask = np.squeeze(cam)
+            except:
+                return torch.zeros_like(X_inp), torch.zeros((1, n_classes))
         else:
             cam, output = self.cam(X_inp, print_out, target_index, dataset_path)
             mask = np.squeeze(cam)
