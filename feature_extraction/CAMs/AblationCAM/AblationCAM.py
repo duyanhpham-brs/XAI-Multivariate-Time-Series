@@ -113,7 +113,7 @@ class AblationCAM(UnitCAM):
         if index is not None and print_out == True:
             print_out = False
 
-        output, self.calculate_slope(input_features, print_out, index)
+        output = self.calculate_slope(input_features, print_out, index)
 
         cam, weights = self.map_slopes()
         assert (
