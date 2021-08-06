@@ -51,7 +51,7 @@ class SmoothGradCAMPlusPlus(GradCAMPlusPlus):
         second_derivatives = None
         third_derivatives = None
         for _ in range(self.smooth_factor):
-            output = elf.calculate_gradients(
+            output = self.calculate_gradients(
                 input_features + self._distrib.sample(input_features.size()),
                 print_out,
                 index,
