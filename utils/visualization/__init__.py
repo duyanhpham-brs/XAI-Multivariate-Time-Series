@@ -110,7 +110,7 @@ class CAMFeatureMaps:
                 cam, output = self.cam(X_inp, print_out, target_index)
                 mask = np.squeeze(cam)
             except:
-                return torch.zeros_like(X_inp), torch.zeros((1, n_classes))
+                return torch.zeros_like(X_inp), torch.zeros(1, n_classes)
         else:
             cam, output = self.cam(X_inp, print_out, target_index, dataset_path)
             mask = np.squeeze(cam)
