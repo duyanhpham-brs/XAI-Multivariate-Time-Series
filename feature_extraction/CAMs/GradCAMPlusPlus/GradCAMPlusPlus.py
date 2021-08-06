@@ -45,7 +45,7 @@ class GradCAMPlusPlus(GradCAM):
             second_derivative: The second derivative of the output
 
         """
-        second_derivative = torch.exp(one_hot.detach()) * target
+        second_derivative = torch.exp(one_hot.detach().cpu()) * target
 
         return second_derivative
 
@@ -63,7 +63,7 @@ class GradCAMPlusPlus(GradCAM):
             third_derivative: The third derivative of the output
 
         """
-        third_derivative = torch.exp(one_hot.detach()) * target * target
+        third_derivative = torch.exp(one_hot.detach().cpu()) * target * target
 
         return third_derivative
 
