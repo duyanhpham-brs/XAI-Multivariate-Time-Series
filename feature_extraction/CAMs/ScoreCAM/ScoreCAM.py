@@ -143,7 +143,7 @@ class ScoreCAM(UnitCAM):
             scores.shape[0] == self.target.shape[0]
         ), "Weights and targets layer shapes are not compatible."
         cam = self.cam_weighted_sum(
-            cam, scores.detach().numpy(), self.target.detach().numpy()
+            cam, scores.detach().cpu().numpy(), self.target.detach().cpu().numpy()
         )
 
         return cam, output

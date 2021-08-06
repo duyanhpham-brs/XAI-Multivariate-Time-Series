@@ -81,7 +81,7 @@ class GradCAMPlusPlus(GradCAM):
 
         """
 
-        global_sum = np.sum(one_hot.detach().numpy(), axis=0)
+        global_sum = np.sum(one_hot.detach().cpu().numpy(), axis=0)
 
         return global_sum
 

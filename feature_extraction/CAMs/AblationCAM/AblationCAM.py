@@ -94,7 +94,7 @@ class AblationCAM(UnitCAM):
 
         cam = np.zeros(self.target.shape[1:], dtype=np.float32)
 
-        return cam, weights.detach().numpy()
+        return cam, weights.detach().cpu().numpy()
 
     def __call__(self, input_features, print_out, index=None):
         """Implemented method when CAM is called on a given input and its targeted
