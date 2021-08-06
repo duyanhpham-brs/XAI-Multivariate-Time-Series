@@ -28,6 +28,7 @@ class SmoothGradCAMPlusPlus(GradCAMPlusPlus):
         self.smooth_factor = kwargs["smooth_factor"]
         self.std = kwargs["std"]
         self._distrib = torch.distributions.normal.Normal(0, self.std)
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     def __call__(self, input_features, print_out, index=None):
         """Implemented method when CAM is called on a given input and its targeted
@@ -52,7 +53,8 @@ class SmoothGradCAMPlusPlus(GradCAMPlusPlus):
         third_derivatives = None
         for _ in range(self.smooth_factor):
             output = self.calculate_gradients(
-                input_features + self._distrib.sample(input_features.size()),
+                input_features
+                + self._distrib.sample(input_features.size()).to(self.device),
                 print_out,
                 index,
             )
