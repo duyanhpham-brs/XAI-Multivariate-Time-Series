@@ -119,7 +119,6 @@ class ScoreCAM(UnitCAM):
                         .unsqueeze(0)
                         .unsqueeze(0)
                     ).to(device)
-                    print(input_features.shape, norm_saliency_map.shape)
                     assert input_features.shape[:-1] == norm_saliency_map.shape[:-1]
                     score_saliency_maps.append(input_features * norm_saliency_map)
 
