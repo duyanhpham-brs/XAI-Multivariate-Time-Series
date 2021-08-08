@@ -1,3 +1,4 @@
+import sys
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -109,8 +110,11 @@ class CAMFeatureMaps:
             try:
                 cam, output = self.cam(X_inp, print_out, target_index)
                 mask = np.squeeze(cam)
-            except:
+            except TypeError:
                 return torch.zeros_like(X_inp), torch.zeros(1, n_classes)
+            except:
+                print("Unexpected error:", sys.exc_info()[0])
+                raise
         else:
             cam, output = self.cam(X_inp, print_out, target_index, dataset_path)
             mask = np.squeeze(cam)
