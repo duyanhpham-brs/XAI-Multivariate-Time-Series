@@ -89,7 +89,6 @@ class ModelOutputs:
                 x = module(x)
                 x = x.view(x.size(0), -1)
             elif name.lower().find("linear") == -1:
-                print(branches[num_branch][0].shape, branches[num_branch][1].shape)
                 if name == "cnn_layers3_txcm":
                     x = (
                         branches[num_branch][0].reshape(
