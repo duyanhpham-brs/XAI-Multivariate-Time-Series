@@ -17,7 +17,7 @@ class View(nn.Module):
         """
         batch_size = x.size(0)
         shape = (batch_size, self.feature_length, -1)
-        out = x.view(shape)
+        out = x.reshape(shape)
         return out
 
 
