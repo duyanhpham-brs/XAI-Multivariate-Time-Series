@@ -103,6 +103,7 @@ class ScoreCAM(UnitCAM):
                 norm_saliency_map = (saliency_map - saliency_map.min()) / (
                     saliency_map.max() - saliency_map.min()
                 )
+                print(input_features.shape, norm_saliency_map.shape)
                 assert input_features.shape[:-1] == norm_saliency_map.size()[:-1]
                 score_saliency_maps.append(input_features * norm_saliency_map)
 
