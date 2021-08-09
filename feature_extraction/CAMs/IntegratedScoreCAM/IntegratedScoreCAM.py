@@ -85,12 +85,12 @@ class IntegratedScoreCAM(ScoreCAM):
                             .unsqueeze(0)
                             .unsqueeze(0)
                         ).to(device)
-                    assert input_features.shape[:-1] == norm_saliency_map.shape[:-1]
-                    score_saliency_maps.append(
-                        ((idx + 1) / self.smooth_factor)
-                        * input_features
-                        * norm_saliency_map
-                    )
+                        assert input_features.shape[:-1] == norm_saliency_map.shape[:-1]
+                        score_saliency_maps.append(
+                            ((idx + 1) / self.smooth_factor)
+                            * input_features
+                            * norm_saliency_map
+                        )
                 # how much increase if keeping the highlighted region
                 # predication on masked input
                 masked_input_features = torch.squeeze(

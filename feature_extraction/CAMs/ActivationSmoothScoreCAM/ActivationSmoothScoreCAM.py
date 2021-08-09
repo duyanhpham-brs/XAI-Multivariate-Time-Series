@@ -88,14 +88,14 @@ class ActivationSmoothScoreCAM(ScoreCAM):
                             .unsqueeze(0)
                             .unsqueeze(0)
                         ).to(device)
-                    assert input_features.shape[:-1] == norm_saliency_map.shape[:-1]
-                    score_saliency_maps.append(
-                        input_features
-                        * (
-                            norm_saliency_map
-                            + self._distrib.sample(input_features.size()).to(device)
+                        assert input_features.shape[:-1] == norm_saliency_map.shape[:-1]
+                        score_saliency_maps.append(
+                            input_features
+                            * (
+                                norm_saliency_map
+                                + self._distrib.sample(input_features.size()).to(device)
+                            )
                         )
-                    )
 
                 # how much increase if keeping the highlighted region
                 # predication on masked input

@@ -156,7 +156,6 @@ class ScoreCAM(UnitCAM):
             input_features, print_out, index
         )
 
-        print(scores.shape, self.target.shape)
         assert (
             scores.shape[0] == self.target.shape[0]
         ), "Weights and targets layer shapes are not compatible."
