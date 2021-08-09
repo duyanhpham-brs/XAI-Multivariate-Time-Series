@@ -74,7 +74,7 @@ class ActivationSmoothScoreCAM(ScoreCAM):
                             input_features
                             * (
                                 norm_saliency_map
-                                + self._distrib.sample(input_features.size())
+                                + self._distrib.sample(input_features.size()).to(device)
                             )
                         )
                     else:

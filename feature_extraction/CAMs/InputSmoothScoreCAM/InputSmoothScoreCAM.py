@@ -73,7 +73,7 @@ class InputSmoothScoreCAM(ScoreCAM):
                         score_saliency_maps.append(
                             (
                                 input_features
-                                + self._distrib.sample(input_features.size())
+                                + self._distrib.sample(input_features.size()).to(device)
                             )
                             * norm_saliency_map
                         )
