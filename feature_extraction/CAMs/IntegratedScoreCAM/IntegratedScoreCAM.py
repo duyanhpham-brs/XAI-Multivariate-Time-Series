@@ -98,7 +98,7 @@ class IntegratedScoreCAM(ScoreCAM):
                 )
                 output_ = self.model(masked_input_features)
 
-                scores += output_[:, index] - output[0, index]
+                scores = output_[:, index] - output[0, index]
 
             scores.div_(self.smooth_factor)
             cam = np.zeros(self.target.shape[1:], dtype=np.float32)

@@ -30,7 +30,7 @@ class Squeeze(nn.Module):
         Squeeze unnecessary dim.
         """
         batch_size = x.size(0)
-        x = torch.squeeze(x)
+        x = torch.squeeze(x, 1)
         if len(x.size()) == 2:
             x = x.view((batch_size, -1))
         elif len(x.size()) == 1:
