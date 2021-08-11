@@ -104,7 +104,9 @@ class ModelOutputs:
                         ),
                         1,
                     )
-                x = module(branches[num_branch][0])
+                    x = module(x)
+                else:
+                    x = module(branches[num_branch][0])
             elif name.lower().find("linear") != -1:
                 if len(x.size()) == 3:
                     x = x.view(x.size(0), -1)
