@@ -88,7 +88,6 @@ class XCM(nn.Module):
         # 1d (temporal) branch
         second_branch = self.cnn_layers2_b1(x)
         # Concatenation
-        print(first_branch.shape, second_branch.shape)
         main_branch = torch.cat((first_branch, second_branch), 1)
         main_branch = self.cnn_layers3(main_branch)
         main_branch = self.avgpool_layer(main_branch)
