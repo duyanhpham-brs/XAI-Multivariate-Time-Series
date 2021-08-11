@@ -18,7 +18,7 @@ class TSEM(nn.Module):
                     ("relu_11", nn.ReLU(inplace=True)),
                     ("conv_12", nn.Conv2d(16, 1, 1)),
                     ("relu_12", nn.ReLU(inplace=True)),
-                    ("squeeze_12", Squeeze()),
+                    ("squeeze_12", Squeeze(True)),
                     ("swap_12", SwapLastDims()),
                 ]
             )
