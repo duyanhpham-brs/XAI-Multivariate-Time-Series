@@ -44,7 +44,6 @@ class Squeeze(nn.Module):
         else:
             batch_size = x.size(0)
             x = torch.squeeze(x)
-            print(x.size())
             if len(x.size()) == 2:
                 x = x.view((batch_size, -1))
             elif len(x.size()) == 1:
