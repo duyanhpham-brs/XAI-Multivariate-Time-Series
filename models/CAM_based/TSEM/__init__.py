@@ -51,7 +51,7 @@ class TSEM(nn.Module):
             )
         )
 
-        self.cnn_layers3_txcm = nn.Sequential(
+        self.cnn_layers3_tsem = nn.Sequential(
             OrderedDict(
                 [
                     ("swap_31", SwapLastDims()),
@@ -88,7 +88,7 @@ class TSEM(nn.Module):
         second_branch = self.cnn_layers2_b1(x)
         # Multiplication
         main_branch = first_branch * second_branch
-        main_branch = self.cnn_layers3_txcm(main_branch)
+        main_branch = self.cnn_layers3_tsem(main_branch)
         main_branch = self.avgpool_layer(main_branch)
         main_branch = self.linear_layers(main_branch)
 

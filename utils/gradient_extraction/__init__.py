@@ -84,21 +84,15 @@ class ModelOutputs:
                     else:
                         temp = module(x)
                         branches[num_branch].append(temp)
+                        branches[num_branch][0] = (
+                            branches[num_branch][0] * branches[num_branch][1]
+                        )
 
             elif name.lower().find("avgpool") != -1:
                 x = module(x)
                 x = x.view(x.size(0), -1)
             elif name.lower().find("linear") == -1:
-                if name == "cnn_layers3_txcm":
-                    x = (
-                        branches[num_branch][0].reshape(
-                            branches[num_branch][1].shape[0],
-                            -1,
-                            branches[num_branch][1].unsqueeze(1).shape[2],
-                        )
-                        * branches[num_branch][1].unsqueeze(1)
-                    )
-                else:
+                if name != "cnn_layers3_tsem":
                     x = torch.cat(
                         (
                             branches[num_branch][0].reshape(
@@ -110,7 +104,7 @@ class ModelOutputs:
                         ),
                         1,
                     )
-                x = module(x)
+                x = module(branches[num_branch][0])
             elif name.lower().find("linear") != -1:
                 if len(x.size()) == 3:
                     x = x.view(x.size(0), -1)
