@@ -24,7 +24,7 @@ class TSEM(nn.Module):
             )
         )
 
-        self.cnn_layers2_b1 = nn.Sequential(
+        self.rnn_layers2_b1 = nn.Sequential(
             OrderedDict(
                 [
                     ("view_21", View((feature_length))),
