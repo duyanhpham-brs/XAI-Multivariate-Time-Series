@@ -24,7 +24,7 @@ class TSEM(nn.Module):
             )
         )
 
-        self.cnn_layers2_b1 = nn.Sequential(
+        self.rnn_layers2_b1 = nn.Sequential(
             OrderedDict(
                 [
                     ("view_21", View((feature_length))),
@@ -85,7 +85,7 @@ class TSEM(nn.Module):
         # 2d (spatial) branch
         first_branch = self.cnn_layers1_b1(x)
         # 1d (temporal) branch
-        second_branch = self.cnn_layers2_b1(x)
+        second_branch = self.rnn_layers2_b1(x)
         # Multiplication
         main_branch = first_branch * second_branch
         main_branch = self.cnn_layers3_tsem(main_branch)
