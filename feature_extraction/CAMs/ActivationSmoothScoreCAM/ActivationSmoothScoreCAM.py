@@ -2,6 +2,8 @@ import torch
 from torch.nn import functional as F
 import numpy as np
 from feature_extraction.CAMs.ScoreCAM.ScoreCAM import ScoreCAM
+from utils.gradient_extraction import upsample
+from models.attention_based.helpers.train_darnn.constants import device
 
 
 class ActivationSmoothScoreCAM(ScoreCAM):
@@ -60,22 +62,40 @@ class ActivationSmoothScoreCAM(ScoreCAM):
                             torch.unsqueeze(self.target[i : i + 1, :], 2), 0
                         )
 
-                    if saliency_map.max() == saliency_map.min():
-                        continue
-
-                    # normalize to 0-1
-                    norm_saliency_map = (saliency_map - saliency_map.min()) / (
-                        saliency_map.max() - saliency_map.min()
-                    )
-
-                    assert input_features.shape[:-1] == norm_saliency_map.size()[:-1]
-                    score_saliency_maps.append(
-                        input_features
-                        * (
-                            norm_saliency_map
-                            + self._distrib.sample(input_features.size())
+                    if saliency_map.max() != saliency_map.min():
+                        # normalize to 0-1
+                        norm_saliency_map = (saliency_map - saliency_map.min()) / (
+                            saliency_map.max() - saliency_map.min()
                         )
-                    )
+                    else:
+                        norm_saliency_map = saliency_map
+                    if input_features.shape[:-1] == norm_saliency_map.shape[:-1]:
+                        score_saliency_maps.append(
+                            input_features
+                            * (
+                                norm_saliency_map
+                                + self._distrib.sample(input_features.size()).to(device)
+                            )
+                        )
+                    else:
+                        norm_saliency_map = (
+                            torch.from_numpy(
+                                upsample(
+                                    norm_saliency_map.squeeze().cpu().numpy(),
+                                    input_features.squeeze().cpu().numpy().T,
+                                )
+                            )
+                            .unsqueeze(0)
+                            .unsqueeze(0)
+                        ).to(device)
+                        assert input_features.shape[:-1] == norm_saliency_map.shape[:-1]
+                        score_saliency_maps.append(
+                            input_features
+                            * (
+                                norm_saliency_map
+                                + self._distrib.sample(input_features.size()).to(device)
+                            )
+                        )
 
                 # how much increase if keeping the highlighted region
                 # predication on masked input
@@ -84,9 +104,9 @@ class ActivationSmoothScoreCAM(ScoreCAM):
                 )
                 output_ = self.model(masked_input_features)
 
-                scores += output_[:, index] - output[0, index]
+                scores = output_[:, index] - output[0, index]
 
             scores.div_(self.smooth_factor)
             cam = np.zeros(self.target.shape[1:], dtype=np.float32)
 
-        return cam, scores
+        return cam, scores, output

@@ -2,6 +2,8 @@ import numpy as np
 import torch
 from torch.nn import functional as F
 from feature_extraction.UnitCAM import UnitCAM
+from utils.gradient_extraction import upsample
+from models.attention_based.helpers.train_darnn.constants import device
 
 
 class ScoreCAM(UnitCAM):
@@ -86,6 +88,7 @@ class ScoreCAM(UnitCAM):
             input_features, print_out, index
         )
         self.target = activations[-1]
+        scores = 0
 
         with torch.no_grad():
             score_saliency_maps = []
@@ -97,14 +100,28 @@ class ScoreCAM(UnitCAM):
                     saliency_map = torch.unsqueeze(
                         torch.unsqueeze(self.target[i : i + 1, :], 2), 0
                     )
-                if saliency_map.max() == saliency_map.min():
-                    continue
-                # normalize to 0-1
-                norm_saliency_map = (saliency_map - saliency_map.min()) / (
-                    saliency_map.max() - saliency_map.min()
-                )
-                assert input_features.shape[:-1] == norm_saliency_map.size()[:-1]
-                score_saliency_maps.append(input_features * norm_saliency_map)
+                if saliency_map.max() != saliency_map.min():
+                    # normalize to 0-1
+                    norm_saliency_map = (saliency_map - saliency_map.min()) / (
+                        saliency_map.max() - saliency_map.min()
+                    )
+                else:
+                    norm_saliency_map = saliency_map
+                if input_features.shape[:-1] == norm_saliency_map.shape[:-1]:
+                    score_saliency_maps.append(input_features * norm_saliency_map)
+                else:
+                    norm_saliency_map = (
+                        torch.from_numpy(
+                            upsample(
+                                norm_saliency_map.squeeze().cpu().numpy(),
+                                input_features.squeeze().cpu().numpy().T,
+                            )
+                        )
+                        .unsqueeze(0)
+                        .unsqueeze(0)
+                    ).to(device)
+                    assert input_features.shape[:-1] == norm_saliency_map.shape[:-1]
+                    score_saliency_maps.append(input_features * norm_saliency_map)
 
             # how much increase if keeping the highlighted region
             # predication on masked input
@@ -116,7 +133,7 @@ class ScoreCAM(UnitCAM):
             scores = output_[:, index] - output[0, index]
             cam = np.zeros(self.target.shape[1:], dtype=np.float32)
 
-        return cam, scores
+        return cam, scores, output
 
     def __call__(self, input_features, print_out, index=None):
         """Implemented method when CAM is called on a given input and its targeted
@@ -135,13 +152,15 @@ class ScoreCAM(UnitCAM):
         if index is not None and print_out == True:
             print_out = False
 
-        cam, scores = self.compute_score_saliency_map(input_features, print_out, index)
+        cam, scores, output = self.compute_score_saliency_map(
+            input_features, print_out, index
+        )
 
         assert (
             scores.shape[0] == self.target.shape[0]
         ), "Weights and targets layer shapes are not compatible."
         cam = self.cam_weighted_sum(
-            cam, scores.detach().numpy(), self.target.detach().numpy()
+            cam, scores.detach().cpu().numpy(), self.target.detach().cpu().numpy()
         )
 
-        return cam
+        return cam, output

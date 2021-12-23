@@ -28,6 +28,7 @@ class SmoothGradCAMPlusPlus(GradCAMPlusPlus):
         self.smooth_factor = kwargs["smooth_factor"]
         self.std = kwargs["std"]
         self._distrib = torch.distributions.normal.Normal(0, self.std)
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     def __call__(self, input_features, print_out, index=None):
         """Implemented method when CAM is called on a given input and its targeted
@@ -51,8 +52,9 @@ class SmoothGradCAMPlusPlus(GradCAMPlusPlus):
         second_derivatives = None
         third_derivatives = None
         for _ in range(self.smooth_factor):
-            self.calculate_gradients(
-                input_features + self._distrib.sample(input_features.size()),
+            output = self.calculate_gradients(
+                input_features
+                + self._distrib.sample(input_features.size()).to(self.device),
                 print_out,
                 index,
             )
@@ -99,7 +101,7 @@ class SmoothGradCAMPlusPlus(GradCAMPlusPlus):
                 .data
             )
 
-        self.calculate_gradients(input_features, print_out, index)
+        output = self.calculate_gradients(input_features, print_out, index)
         global_sum = self.compute_global_sum(self.one_hot)
 
         self.extract_higher_level_gradient(
@@ -115,4 +117,4 @@ class SmoothGradCAMPlusPlus(GradCAMPlusPlus):
         ), "Weights and targets layer shapes are not compatible."
         cam = self.cam_weighted_sum(cam, weights, self.target)
 
-        return cam
+        return cam, output

@@ -17,11 +17,15 @@ class View(nn.Module):
         """
         batch_size = x.size(0)
         shape = (batch_size, self.feature_length, -1)
-        out = x.view(shape)
+        out = x.reshape(shape)
         return out
 
 
 class Squeeze(nn.Module):
+    def __init__(self, keep_depth=False):
+        super().__init__()
+        self.keep_depth = keep_depth
+
     def __repr__(self):
         return "Squeeze()"
 
@@ -30,12 +34,20 @@ class Squeeze(nn.Module):
         Squeeze unnecessary dim.
         """
         batch_size = x.size(0)
-        x = torch.squeeze(x)
-        if len(x.size()) == 2:
-           x = x.view((batch_size, -1))
-        elif len(x.size()) == 1:
-            x = x.view((batch_size, 1))
-        return x
+        if self.keep_depth or batch_size == 1:
+            x = torch.squeeze(x, 1)
+            if len(x.size()) == 2:
+                x = x.view((batch_size, -1))
+            elif len(x.size()) == 1:
+                x = x.view((batch_size, 1))
+            return x
+        else:
+            x = torch.squeeze(x)
+            if len(x.size()) == 2:
+                x = x.view((batch_size, -1))
+            elif len(x.size()) == 1:
+                x = x.view((batch_size, 1))
+            return x
 
 
 class SwapLastDims(nn.Module):
@@ -54,3 +66,15 @@ class SwapLastDims(nn.Module):
         shape = (batch_size, x.size(-1), x.size(-2))
         out = x.view(shape)
         return out
+
+
+class ExtractLastCell(nn.Module):
+    def __repr__(self):
+        return "ExtractLastCell()"
+
+    def forward(self, x):
+        """
+        Extract last cell for RNN
+        """
+        out, _ = x
+        return out.detach()[:, -1:, :]

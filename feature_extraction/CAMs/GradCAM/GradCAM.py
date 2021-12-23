@@ -62,6 +62,8 @@ class GradCAM(UnitCAM):
         self.target = features[-1]
         self.target = self.target.cpu().data.numpy()[0, :]
 
+        return output
+
     def map_gradients(self):
         """Caculate weights based on the gradients corresponding to the extracting layer
         via global average pooling
@@ -99,7 +101,7 @@ class GradCAM(UnitCAM):
         if index is not None and print_out == True:
             print_out = False
 
-        self.calculate_gradients(input_features, print_out, index)
+        output = self.calculate_gradients(input_features, print_out, index)
 
         cam, weights = self.map_gradients()
         assert (
@@ -107,4 +109,4 @@ class GradCAM(UnitCAM):
         ), "Weights and targets layer shapes are not compatible."
         cam = self.cam_weighted_sum(cam, weights, self.target)
 
-        return cam
+        return cam, output

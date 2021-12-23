@@ -7,7 +7,14 @@ import matplotlib.pyplot as plt
 
 
 def train_model(
-    model, criterion, optimizer, scheduler, dataloaders, datasets_size, num_epochs=25
+    model,
+    criterion,
+    optimizer,
+    scheduler,
+    dataloaders,
+    datasets_size,
+    num_epochs=25,
+    plot=False,
 ):
     since = time.time()
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -78,10 +85,10 @@ def train_model(
                 train_loss.append(epoch_loss)
             else:
                 test_loss.append(epoch_loss)
-
-        plt.plot(np.array(train_loss))
-        plt.plot(np.array(test_loss))
-        plt.show()
+        if plot:
+            plt.plot(np.array(train_loss))
+            plt.plot(np.array(test_loss))
+            plt.show()
 
     time_elapsed = time.time() - since
     print(

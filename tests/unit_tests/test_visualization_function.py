@@ -21,7 +21,7 @@ class mockCAM:
         input_features = input_features[:, 2:]
         output = F.avg_pool1d(input_features, 2, 2)
 
-        return output.detach().numpy()
+        return output.detach().cpu().numpy()
 
 
 @pytest.fixture()

@@ -69,6 +69,8 @@ class CAM(UnitCAM):
         -------
             cam: The resulting weighted feature maps
         """
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
         if index is not None and print_out == True:
             print_out = False
 
@@ -119,6 +121,7 @@ class CAM(UnitCAM):
                                 ("avg_pool", torch.nn.AdaptiveAvgPool1d(1)),
                                 ("view", SwapLastDims()),
                                 ("fc1", torch.nn.Linear(out_channels, n_classes)),
+                                ("softmax", torch.nn.Softmax(dim=1)),
                             ]
                         )
                     )
@@ -129,6 +132,7 @@ class CAM(UnitCAM):
                                 ("avg_pool", torch.nn.AdaptiveAvgPool2d(1)),
                                 ("squeeze", Squeeze()),
                                 ("fc1", torch.nn.Linear(out_channels, n_classes)),
+                                ("softmax", torch.nn.Softmax(dim=1)),
                             ]
                         )
                     )
@@ -143,7 +147,7 @@ class CAM(UnitCAM):
 
                     return x
 
-            new_model = TargetedModel(n_classes, out_channels)
+            new_model = TargetedModel(n_classes, out_channels).to(device)
 
             for param in new_model._modules["linear_layers_1d"].parameters():
                 param.requires_grad = True
@@ -170,9 +174,9 @@ class CAM(UnitCAM):
                 10,
             )
 
-            print(index)
-            features, _, index = self.extract_features(input_features, print_out, index)
-            print(index)
+            features, output, index = self.extract_features(
+                input_features, print_out, index
+            )
 
             target = features[-1]
             target = target.cpu().data.numpy()[0, :]
@@ -181,24 +185,28 @@ class CAM(UnitCAM):
                 print(
                     new_model._modules["linear_layers_1d"][-1]
                     .weight.detach()
+                    .cpu()
                     .numpy()
                     .shape
                 )
                 weights = (
                     new_model._modules["linear_layers_1d"][-1]
                     .weight.detach()
+                    .cpu()
                     .numpy()[index, :]
                 )
             except AttributeError:
                 print(
                     new_model._modules["linear_layers_1d"][-2]
                     .weight.detach()
+                    .cpu()
                     .numpy()
                     .shape
                 )
                 weights = (
                     new_model._modules["linear_layers_1d"][-2]
                     .weight.detach()
+                    .cpu()
                     .numpy()[index, :]
                 )
             except KeyError:
@@ -206,18 +214,21 @@ class CAM(UnitCAM):
                     print(
                         new_model._modules["linear_layers_2d"][-1]
                         .weight.detach()
+                        .cpu()
                         .numpy()
                         .shape
                     )
                     weights = (
                         new_model._modules["linear_layers_2d"][-1]
                         .weight.detach()
+                        .cpu()
                         .numpy()[index, :]
                     )
                 except AttributeError:
                     print(
                         new_model._modules["linear_layers_2d"][-2]
                         .weight.detach()
+                        .cpu()
                         .numpy()
                         .shape
                     )
@@ -231,14 +242,16 @@ class CAM(UnitCAM):
             target = np.squeeze(target)
             weights = np.squeeze(weights).T
 
-            assert (
-                weights.shape[0] == target.shape[0]
-            ), "Weights and targets layer shapes are not compatible."
+            # assert (
+            #     weights.shape[0] == target.shape[0]
+            # ), "Weights and targets layer shapes are not compatible."
             cam = self.cam_weighted_sum(cam, weights, target, ReLU=False)
 
-            return cam
+            return cam, output
 
-        features, _, index = self.extract_features(input_features, print_out, index)
+        features, output, index = self.extract_features(
+            input_features, print_out, index
+        )
 
         target = features[-1]
         target = target.cpu().data.numpy()[0, :]
@@ -247,12 +260,14 @@ class CAM(UnitCAM):
             weights = (
                 new_model._modules["linear_layers"][-1]
                 .weight.detach()
+                .cpu()
                 .numpy()[:, index]
             )
         except AttributeError:
             weights = (
                 new_model._modules["linear_layers"][-2]
                 .weight.detach()
+                .cpu()
                 .numpy()[:, index]
             )
 
@@ -265,4 +280,4 @@ class CAM(UnitCAM):
         ), "Weights and targets layer shapes are not compatible."
         cam = self.cam_weighted_sum(cam, weights, target, ReLU=False)
 
-        return cam
+        return cam, output

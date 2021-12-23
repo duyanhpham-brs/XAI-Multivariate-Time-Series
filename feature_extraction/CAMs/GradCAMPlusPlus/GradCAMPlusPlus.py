@@ -45,7 +45,7 @@ class GradCAMPlusPlus(GradCAM):
             second_derivative: The second derivative of the output
 
         """
-        second_derivative = torch.exp(one_hot.detach()) * target
+        second_derivative = torch.exp(one_hot.detach().cpu()) * target
 
         return second_derivative
 
@@ -63,7 +63,7 @@ class GradCAMPlusPlus(GradCAM):
             third_derivative: The third derivative of the output
 
         """
-        third_derivative = torch.exp(one_hot.detach()) * target * target
+        third_derivative = torch.exp(one_hot.detach().cpu()) * target * target
 
         return third_derivative
 
@@ -81,7 +81,7 @@ class GradCAMPlusPlus(GradCAM):
 
         """
 
-        global_sum = np.sum(one_hot.detach().numpy(), axis=0)
+        global_sum = np.sum(one_hot.detach().cpu().numpy(), axis=0)
 
         return global_sum
 
@@ -140,6 +140,8 @@ class GradCAMPlusPlus(GradCAM):
         self.target = features[-1]
         self.target = self.target.cpu().data.numpy()[0, :]
 
+        return output
+
     def map_gradients(self):
         """Caculate weights based on the gradients corresponding to the extracting layer
         via global average pooling
@@ -178,7 +180,7 @@ class GradCAMPlusPlus(GradCAM):
         if index is not None and print_out == True:
             print_out = False
 
-        self.calculate_gradients(input_features, print_out, index)
+        output = self.calculate_gradients(input_features, print_out, index)
         second_derivative = self.compute_second_derivative(self.one_hot, self.target)
         third_derivative = self.compute_third_derivative(self.one_hot, self.target)
         global_sum = self.compute_global_sum(self.one_hot)
@@ -191,4 +193,4 @@ class GradCAMPlusPlus(GradCAM):
         ), "Weights and targets layer shapes are not compatible."
         cam = self.cam_weighted_sum(cam, weights, self.target)
 
-        return cam
+        return cam, output
